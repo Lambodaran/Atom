@@ -24,7 +24,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { useState } from 'react';
-import logo from '/logo.png';
+import logo from '../../assets/logo.png';
 
 const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
   const location = useLocation();

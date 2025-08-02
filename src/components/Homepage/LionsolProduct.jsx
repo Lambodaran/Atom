@@ -1,5 +1,5 @@
 import React from 'react';
-import LionsolProduct from '../../../public/lionsolproduct.png';
+import LionsolProduct from '../../assets/lionsolproduct.png';
 
 const Lionsol = () => {
   return (

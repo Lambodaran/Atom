@@ -1,5 +1,5 @@
 import React from 'react';
-import FeatureIcon from '../../../public/BusinessApp.jpeg';
+import FeatureIcon from '../../assets/BusinessApp.jpeg';
 
 const WhyChoose = () => {
   const features = [

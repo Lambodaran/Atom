@@ -1,5 +1,5 @@
 import React from 'react';
-import ReadyImage from '../../../public/ready.jpg';
+import ReadyImage from '../../assets/ready.jpg';
 
 const ReadyTransform = () => {
   return (

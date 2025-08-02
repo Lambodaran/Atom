@@ -1,5 +1,5 @@
 import React from 'react';
-import Customer from '../../../public/customer.png';
+import Customer from '../../assets/customer.png'
 
 const PrimeCustomer = () => {
   return (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import Logo from '../../../public/logo.png';
+import { Link } from 'react-router-dom';
+import Logo from '../../assets/logo.png';
 
 const Navbar = () => {
   const [isProductsOpen, setIsProductsOpen] = useState(false);
@@ -53,15 +54,15 @@ const Navbar = () => {
 
           {/* Right Side Buttons */}
           <div className="flex items-center space-x-4">
-            <a href="login" className="text-gray-800 hover:text-gray-900 border rounded-lg p-2">
+            <Link to="/login" className="text-gray-800 hover:text-gray-900 border rounded-lg p-2">
               Sign In
-            </a>
-            <a 
-              href="signup" 
+            </Link>
+            <Link 
+              to="/signup" 
               className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors"
             >
               Create an Account
-            </a>
+            </Link>
           </div>
         </div>
       </div>

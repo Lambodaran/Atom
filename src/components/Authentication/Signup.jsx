@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import AuthImage from '../../assets/auth.jpg';
 
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
@@ -227,7 +228,7 @@ const SignupPage = () => {
       <div className="hidden md:block md:w-1/2 bg-gray-100">
         <div 
           className="h-full w-full bg-cover bg-center" 
-          style={{ backgroundImage: "url('/auth.jpg')" }}
+          style={{ backgroundImage: `url(${AuthImage})` }}
         ></div>
       </div>
     </div>

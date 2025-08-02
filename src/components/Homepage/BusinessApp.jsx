@@ -1,5 +1,5 @@
 import React from 'react';
-import BusinessAppImage from '../../../public/BusinessApp.jpeg';
+import BusinessAppImage from '../../assets/BusinessApp.jpeg';
 
 const BusinessApp = () => {
   return (

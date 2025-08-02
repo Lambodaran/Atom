@@ -1,4 +1,4 @@
-import BusinessApp from "../../../public/BusinessApp.png";
+import BusinessApp from "../../assets/BusinessApp.png";
 const Hero = () => {
   return (
     <section className="bg-[#FEF4EA] text-black py-16 px-4 sm:px-6 lg:px-8">

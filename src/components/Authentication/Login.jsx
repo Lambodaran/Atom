@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AuthImage from '../../assets/auth.jpg';
 
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
@@ -194,9 +194,12 @@ const LoginPage = () => {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <a href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                Sign up
-              </a>
+                   <Link 
+              to="/signup" 
+              className=" text-black font-bold px-4 py-2 rounded-md  transition-colors"
+            >
+              Sign up
+            </Link>
             </p>
           </div>
         </div>

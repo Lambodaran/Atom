@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { Edit, Trash2 } from 'lucide-react';
 
 const LiftForm = ({
   isEdit = false,
@@ -31,18 +32,91 @@ const LiftForm = ({
     ...initialData,
   });
 
-  // Modal state for adding new dropdown options
-  const [modalState, setModalState] = useState({
-    brand: { isOpen: false, value: '' },
-    floorID: { isOpen: false, value: '' },
-    machineType: { isOpen: false, value: '' },
-    liftType: { isOpen: false, value: '' },
-    doorType: { isOpen: false, value: '' },
-    machineBrand: { isOpen: false, value: '' },
-    doorBrand: { isOpen: false, value: '' },
-    controllerBrand: { isOpen: false, value: '' },
-    cabin: { isOpen: false, value: '' },
+  // State for existing options
+  const [existingOptions, setExistingOptions] = useState({
+    brand: [],
+    floorID: [],
+    machineType: [],
+    liftType: [],
+    doorType: [],
+    machineBrand: [],
+    doorBrand: [],
+    controllerBrand: [],
+    cabin: [],
   });
+
+  // Modal state for adding/editing/deleting dropdown options
+  const [modalState, setModalState] = useState({
+    brand: { isOpen: false, value: '', isEditing: false, editId: null },
+    floorID: { isOpen: false, value: '', isEditing: false, editId: null },
+    machineType: { isOpen: false, value: '', isEditing: false, editId: null },
+    liftType: { isOpen: false, value: '', isEditing: false, editId: null },
+    doorType: { isOpen: false, value: '', isEditing: false, editId: null },
+    machineBrand: { isOpen: false, value: '', isEditing: false, editId: null },
+    doorBrand: { isOpen: false, value: '', isEditing: false, editId: null },
+    controllerBrand: { isOpen: false, value: '', isEditing: false, editId: null },
+    cabin: { isOpen: false, value: '', isEditing: false, editId: null },
+  });
+
+  // Centralized Axios instance with Bearer token
+  const createAxiosInstance = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return null;
+    }
+    return axios.create({
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  };
+
+  // Fetch existing options
+  const fetchOptions = async (field, retryCount = 2) => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const endpoints = {
+        brand: 'brands',
+        floorID: 'floor-ids',
+        machineType: 'machine-types',
+        liftType: 'lift-types',
+        doorType: 'door-types',
+        machineBrand: 'machine-brands',
+        doorBrand: 'door-brands',
+        controllerBrand: 'controller-brands',
+        cabin: 'cabins',
+      };
+      const endpoint = endpoints[field];
+      const response = await axiosInstance.get(`${apiBaseUrl}/auth/${endpoint}/`);
+      setExistingOptions((prev) => ({
+        ...prev,
+        [field]: response.data,
+      }));
+      dropdownOptions[`set${field.charAt(0).toUpperCase() + field.slice(1)}Options`]?.(
+        response.data.map(item => item.value)
+      );
+    } catch (error) {
+      console.error(`Error fetching ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else if (retryCount > 0 && error.code === 'ERR_NETWORK') {
+        console.log(`Retrying fetchOptions for ${field}... (${retryCount} attempts left)`);
+        setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
+      } else {
+        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+      }
+    }
+  };
+
+  // Fetch options on component mount
+  useEffect(() => {
+    const fields = ['brand', 'floorID', 'machineType', 'liftType', 'doorType', 'machineBrand', 'doorBrand', 'controllerBrand', 'cabin'];
+    fields.forEach(field => fetchOptions(field));
+  }, []);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -50,23 +124,23 @@ const LiftForm = ({
     setNewLift((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Open modal to add new dropdown option
-  const openAddModal = (field) => {
-    setModalState((prev) => ({ 
-      ...prev, 
-      [field]: { ...prev[field], isOpen: true } 
+  // Open modal to add/edit dropdown option
+  const openAddModal = (field, isEditing = false, editId = null, editValue = '') => {
+    setModalState((prev) => ({
+      ...prev,
+      [field]: { isOpen: true, value: editValue, isEditing, editId },
     }));
   };
 
-  // Close modal to add new dropdown option
+  // Close modal
   const closeAddModal = (field) => {
-    setModalState((prev) => ({ 
-      ...prev, 
-      [field]: { isOpen: false, value: '' } 
+    setModalState((prev) => ({
+      ...prev,
+      [field]: { isOpen: false, value: '', isEditing: false, editId: null },
     }));
   };
 
-  // Handle adding new dropdown option
+  // Handle adding or editing dropdown option
   const handleAddOption = async (field) => {
     const value = modalState[field].value.trim();
     if (!value) {
@@ -74,48 +148,102 @@ const LiftForm = ({
       return;
     }
 
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
     try {
-      const token = localStorage.getItem('access_token');
       const apiEndpoints = {
-        brand: 'add-brand/',
-        floorID: 'add-floor-id/',
-        machineType: 'add-machine-type/',
-        liftType: 'add-lift-type/',
-        doorType: 'add-door-type/',
-        machineBrand: 'add-machine-brand/',
-        doorBrand: 'add-door-brand/',
-        controllerBrand: 'add-controller-brand/',
-        cabin: 'add-cabin/',
+        brand: 'edit-brand',
+        floorID: 'edit-floor-id',
+        machineType: 'edit-machine-type',
+        liftType: 'edit-lift-type',
+        doorType: 'edit-door-type',
+        machineBrand: 'edit-machine-brand',
+        doorBrand: 'edit-door-brand',
+        controllerBrand: 'edit-controller-brand',
+        cabin: 'edit-cabin',
       };
+      const addEndpoints = {
+        brand: 'add-brand',
+        floorID: 'add-floor-id',
+        machineType: 'add-machine-type',
+        liftType: 'add-lift-type',
+        doorType: 'add-door-type',
+        machineBrand: 'add-machine-brand',
+        doorBrand: 'add-door-brand',
+        controllerBrand: 'add-controller-brand',
+        cabin: 'add-cabin',
+      };
+      const isEditing = modalState[field].isEditing;
+      const editId = modalState[field].editId;
 
-      await axios.post(
-        `${apiBaseUrl}/auth/${apiEndpoints[field]}`,
-        { value },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      if (isEditing) {
+        await axiosInstance.put(
+          `${apiBaseUrl}/auth/${apiEndpoints[field]}/${editId}/`,
+          { value }
+        );
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} updated successfully.`);
+      } else {
+        await axiosInstance.post(
+          `${apiBaseUrl}/auth/${addEndpoints[field]}/`,
+          { value }
+        );
+        setNewLift((prev) => ({ ...prev, [field]: value }));
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} added successfully.`);
+      }
 
-      // Update the form state with the new value
-      setNewLift(prev => ({ ...prev, [field]: value }));
-
-      // Close the modal
+      fetchOptions(field);
       closeAddModal(field);
-
-      // Show success message
-      toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} added successfully.`);
-
-      // Trigger parent component to refresh options
       onSubmitSuccess();
-
     } catch (error) {
-      console.error(`Error adding ${field}:`, error.response?.data || error);
-      toast.error(
-        error.response?.data?.error || 
-        `Failed to add ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`
-      );
+      console.error(`Error ${isEditing ? 'editing' : 'adding'} ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        const errorMsg = error.response?.data?.value?.[0] || error.response?.data?.error || `Failed to ${isEditing ? 'update' : 'add'} ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`;
+        toast.error(errorMsg);
+      }
+    }
+  };
+
+  // Handle deleting dropdown option
+  const handleDeleteOption = async (field, id) => {
+    if (!window.confirm(`Are you sure you want to delete this ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}?`)) {
+      return;
+    }
+
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const deleteEndpoints = {
+        brand: 'delete-brand',
+        floorID: 'delete-floor-id',
+        machineType: 'delete-machine-type',
+        liftType: 'delete-lift-type',
+        doorType: 'delete-door-type',
+        machineBrand: 'delete-machine-brand',
+        doorBrand: 'delete-door-brand',
+        controllerBrand: 'delete-controller-brand',
+        cabin: 'delete-cabin',
+      };
+      await axiosInstance.delete(`${apiBaseUrl}/auth/${deleteEndpoints[field]}/${id}/`);
+      toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
+      fetchOptions(field);
+    } catch (error) {
+      console.error(`Error deleting ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(
+          error.response?.data?.error ||
+          `Failed to delete ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`
+        );
+      }
     }
   };
 
@@ -129,9 +257,10 @@ const LiftForm = ({
       return;
     }
 
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
     try {
-      const token = localStorage.getItem('access_token');
-      // Fetch all reference data to map values to IDs
       const [
         brands, 
         floors, 
@@ -143,33 +272,15 @@ const LiftForm = ({
         controllerBrands, 
         cabins
       ] = await Promise.all([
-        axios.get(`${apiBaseUrl}/auth/brands/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/floor-ids/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/lift-types/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/machine-types/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/machine-brands/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/door-types/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/door-brands/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/controller-brands/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${apiBaseUrl}/auth/cabins/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        axiosInstance.get(`${apiBaseUrl}/auth/brands/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/floor-ids/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/lift-types/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/machine-types/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/machine-brands/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/door-types/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/door-brands/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/controller-brands/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/cabins/`),
       ]);
 
       // Prepare lift data for API
@@ -194,21 +305,15 @@ const LiftForm = ({
 
       // Make API call based on edit or create mode
       if (isEdit) {
-        await axios.put(
+        await axiosInstance.put(
           `${apiBaseUrl}/auth/edit_lift/${initialData.id}/`, 
-          liftData, 
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          liftData
         );
         toast.success('Lift updated successfully.');
       } else {
-        await axios.post(
+        await axiosInstance.post(
           `${apiBaseUrl}/auth/add_lift/`, 
-          liftData, 
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          liftData
         );
         toast.success('Lift created successfully.');
       }
@@ -217,16 +322,22 @@ const LiftForm = ({
       onSubmitSuccess();
       onClose();
     } catch (error) {
-      console.error(`Error ${isEdit ? 'editing' : 'creating'} lift:`, error.response?.data || error);
-      toast.error(
-        error.response?.data?.error || 
-        `Failed to ${isEdit ? 'update' : 'create'} lift.`
-      );
+      console.error(`Error ${isEdit ? 'editing' : 'creating'} lift:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(
+          error.response?.data?.error || 
+          `Failed to ${isEdit ? 'update' : 'create'} lift.`
+        );
+      }
     }
   };
 
   return (
-    <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
       {/* Main Form Modal */}
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
         {/* Modal Header */}
@@ -300,7 +411,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('floorID')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -330,7 +441,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('brand')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -426,7 +537,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('machineType')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -455,7 +566,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('machineBrand')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -484,7 +595,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('liftType')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -513,7 +624,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('doorType')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -542,7 +653,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('doorBrand')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -571,7 +682,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('controllerBrand')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -601,7 +712,7 @@ const LiftForm = ({
                   <button
                     type="button"
                     onClick={() => openAddModal('cabin')}
-                    className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
                     +
                   </button>
@@ -648,24 +759,70 @@ const LiftForm = ({
         </div>
       </div>
 
-      {/* Secondary Modals for Adding Options */}
-      {Object.entries(modalState).map(([field, { isOpen, value }]) => (
+      {/* Secondary Modals for Adding/Editing/Deleting Options */}
+      {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) => (
         isOpen && (
           <div key={field} className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Add New {field.replace(/([A-Z])/g, ' $1').trim()}
+                {isEditing ? `Edit ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add New ${field.replace(/([A-Z])/g, ' $1').trim()}`}
               </h3>
               <input
                 type="text"
                 value={value}
-                onChange={(e) => setModalState((prev) => ({ 
-                  ...prev, 
-                  [field]: { ...prev[field], value: e.target.value } 
-                }))}
-                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 mb-4"
+                onChange={(e) =>
+                  setModalState((prev) => ({
+                    ...prev,
+                    [field]: { ...prev[field], value: e.target.value },
+                  }))
+                }
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 mb-4"
                 placeholder={`Enter new ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`}
               />
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Existing {field.replace(/([A-Z])/g, ' $1').trim()}s</h4>
+                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="p-2 text-left">Name</th>
+                        <th className="p-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {existingOptions[field].length > 0 ? (
+                        existingOptions[field].map((option) => (
+                          <tr key={option.id} className="border-t">
+                            <td className="p-2">{option.value}</td>
+                            <td className="p-2 text-right">
+                              <button
+                                onClick={() => openAddModal(field, true, option.id, option.value)}
+                                className="text-blue-500 hover:text-blue-700 mr-2"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOption(field, option.id)}
+                                className="text-red-500 hover:text-red-700"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="2" className="p-2 text-center text-gray-500">
+                            No {field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}s found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => closeAddModal(field)}
@@ -675,9 +832,10 @@ const LiftForm = ({
                 </button>
                 <button
                   onClick={() => handleAddOption(field)}
-                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-200"
+                  disabled={!value.trim()}
+                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium transition-all duration-200 ${!value.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-600 hover:to-blue-700'}`}
                 >
-                  Add {field.replace(/([A-Z])/g, ' $1').trim()}
+                  {isEditing ? `Update ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add ${field.replace(/([A-Z])/g, ' $1').trim()}`}
                 </button>
               </div>
             </div>

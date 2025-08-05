@@ -1,72 +1,187 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
-const NewItemForm = ({ onCancel, brandOptions, floorOptions, typeOptions, doorTypeOptions, onSubmit }) => {
+const NewItemForm = ({ onCancel, onSubmit }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    partNo: '',
     name: '',
-    type: '',
+    make: '',
+    model: '',
+    capacity: '',
+    thresholdQty: '',
     salePrice: 0,
-    purchasePrice: 0,
+    type: '',
+    unit: '',
+    description: '',
     taxPreference: 'Taxable',
-    tax: 'GST18(18%)',
-    floorID: '',
-    brand: '',
+    serviceType: 'Goods',
+    gst: '',
+    partNo: '',
+    sac: '',
+    sacIgst: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [existingOptions, setExistingOptions] = useState({
+    make: [],
+    type: [],
+  });
+  const [modalState, setModalState] = useState({
+    make: { isOpen: false, value: '', isEditing: false, editId: null },
+    type: { isOpen: false, value: '', isEditing: false, editId: null },
+  });
+
+  const createAxiosInstance = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return null;
+    }
+    return axios.create({
+      headers: { Authorization: `Bearer ${token}` },
+      withCredentials: true,
+    });
+  };
+
+  const fetchOptions = async (field, retryCount = 2) => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const endpoints = {
+        make: 'makes',
+        type: 'types',
+      };
+      const response = await axiosInstance.get(`${apiBaseUrl}/${endpoints[field]}/`);
+      setExistingOptions((prev) => ({
+        ...prev,
+        [field]: response.data,
+      }));
+    } catch (error) {
+      console.error(`Error fetching ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else if (retryCount > 0 && error.code === 'ERR_NETWORK') {
+        setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
+      } else {
+        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+      }
+    }
+  };
 
   useEffect(() => {
-    // Placeholder for fetching initial options if not passed as props
-    if (!brandOptions || !floorOptions || !typeOptions || !doorTypeOptions) {
-      const fetchOptions = async () => {
-        try {
-          const [brands, floors, types, doorTypes] = await Promise.all([
-            axios.get(`${apiBaseUrl}/brands/`, { withCredentials: true }),
-            axios.get(`${apiBaseUrl}/floor-ids/`, { withCredentials: true }),
-            axios.get(`${apiBaseUrl}/lift-types/`, { withCredentials: true }),
-            axios.get(`${apiBaseUrl}/door-types/`, { withCredentials: true }),
-          ]);
-          setFormData((prev) => ({
-            ...prev,
-            brandOptions: brands.data.map(item => item.value),
-            floorOptions: floors.data.map(item => item.value),
-            typeOptions: types.data.map(item => item.value),
-            doorTypeOptions: doorTypes.data.map(item => item.value),
-          }));
-        } catch (error) {
-          console.error('Error fetching options:', error);
-          toast.error('Failed to load options.');
-        }
-      };
-      fetchOptions();
-    }
-  }, [brandOptions, floorOptions, typeOptions, doorTypeOptions]);
+    const fields = ['make', 'type'];
+    fields.forEach(field => fetchOptions(field));
+  }, []);
 
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'salePrice' || name === 'purchasePrice' ? parseFloat(value) || 0 : value,
+      [name]: value,
     }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
   };
 
+  const openAddModal = (field, isEditing = false, editId = null, editValue = '') => {
+    setModalState((prev) => ({
+      ...prev,
+      [field]: { isOpen: true, value: editValue, isEditing, editId },
+    }));
+  };
+
+  const closeAddModal = (field) => {
+    setModalState((prev) => ({
+      ...prev,
+      [field]: { isOpen: false, value: '', isEditing: false, editId: null },
+    }));
+  };
+
+  const handleAddOption = async (field) => {
+    const value = modalState[field].value.trim();
+    if (!value) {
+      toast.error(`Please enter a ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+      return;
+    }
+
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const apiEndpoints = {
+        make: 'edit-make',
+        type: 'edit-type',
+      };
+      const addEndpoints = {
+        make: 'add-make',
+        type: 'add-type',
+      };
+      const isEditing = modalState[field].isEditing;
+      const editId = modalState[field].editId;
+
+      if (isEditing) {
+        await axiosInstance.put(`${apiBaseUrl}/${apiEndpoints[field]}/${editId}/`, { value });
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} updated successfully.`);
+      } else {
+        await axiosInstance.post(`${apiBaseUrl}/${addEndpoints[field]}/`, { value });
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} added successfully.`);
+      }
+
+      fetchOptions(field);
+      closeAddModal(field);
+    } catch (error) {
+      console.error(`Error ${isEditing ? 'editing' : 'adding'} ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(error.response?.data?.value?.[0] || `Failed to ${isEditing ? 'update' : 'add'} ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+      }
+    }
+  };
+
+  const handleDeleteOption = async (field, id) => {
+    if (!window.confirm(`Are you sure you want to delete this ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}?`)) return;
+
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const deleteEndpoints = {
+        make: 'delete-make',
+        type: 'delete-type',
+      };
+      await axiosInstance.delete(`${apiBaseUrl}/${deleteEndpoints[field]}/${id}/`);
+      toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
+      fetchOptions(field);
+    } catch (error) {
+      console.error(`Error deleting ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(error.response?.data?.error || `Failed to delete ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+      }
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.partNo.trim()) newErrors.partNo = 'Part Number is required';
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (formData.salePrice < 0) newErrors.salePrice = 'Sale Price cannot be negative';
-    if (formData.purchasePrice < 0) newErrors.purchasePrice = 'Purchase Price cannot be negative';
-    if (!formData.floorID) newErrors.floorID = 'Floor ID is required';
-    if (!formData.brand) newErrors.brand = 'Brand is required';
     return newErrors;
   };
 
@@ -80,25 +195,27 @@ const NewItemForm = ({ onCancel, brandOptions, floorOptions, typeOptions, doorTy
 
     setLoading(true);
     try {
-      const [brands, floors] = await Promise.all([
-        axios.get(`${apiBaseUrl}/brands/`, { withCredentials: true }),
-        axios.get(`${apiBaseUrl}/floor-ids/`, { withCredentials: true }),
-      ]);
-
-      const liftData = {
-        lift_code: formData.partNo,
+      const itemData = {
         name: formData.name,
-        price: formData.salePrice,
-        floor_id: floors.data.find(f => f.value === formData.floorID)?.id,
-        brand: brands.data.find(b => b.value === formData.brand)?.id,
-        load_kg: formData.purchasePrice,
-        lift_type: typeOptions.find(t => t === formData.type)?.id || null,
-        door_type: doorTypeOptions.find(d => d === formData.doorType)?.id || null,
+        make: formData.make,
+        model: formData.model,
+        capacity: formData.capacity,
+        thresholdQty: formData.thresholdQty,
+        salePrice: formData.salePrice,
+        type: formData.type,
+        unit: formData.unit,
+        description: formData.description,
+        taxPreference: formData.taxPreference,
+        serviceType: formData.serviceType,
+        gst: formData.gst,
+        partNo: formData.partNo,
+        sac: formData.sac,
+        sacIgst: formData.sacIgst,
       };
 
-      const response = await axios.post(`${apiBaseUrl}/add_lift/`, liftData, { withCredentials: true });
+      const response = await axios.post(`${apiBaseUrl}/add_item/`, itemData, { withCredentials: true });
       toast.success(response.data.message || 'Item created successfully.');
-      if (onSubmit) onSubmit(liftData);
+      if (onSubmit) onSubmit(itemData);
       else navigate('/items');
     } catch (error) {
       console.error('Error creating item:', error.response?.data || error);
@@ -109,243 +226,372 @@ const NewItemForm = ({ onCancel, brandOptions, floorOptions, typeOptions, doorTy
   };
 
   const handleCancel = () => {
-    console.log('Cancel clicked');
     setFormData({
-      partNo: '',
       name: '',
-      type: '',
+      make: '',
+      model: '',
+      capacity: '',
+      thresholdQty: '',
       salePrice: 0,
-      purchasePrice: 0,
+      type: '',
+      unit: '',
+      description: '',
       taxPreference: 'Taxable',
-      tax: 'GST18(18%)',
-      floorID: '',
-      brand: '',
+      serviceType: 'Goods',
+      gst: '',
+      partNo: '',
+      sac: '',
+      sacIgst: '',
     });
     setErrors({});
     if (onCancel) onCancel();
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="bg-white rounded-xl  w-full max-w-4xl mx-auto">
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-6">
+    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
+        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
           <h2 className="text-2xl font-bold text-white">Create New Item</h2>
-          <p className="text-orange-100">Fill in all required fields (*) to add an item</p>
+          <p className="text-white">Fill in all required fields (*) to add an item</p>
         </div>
         <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Essential Information</h3>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="partNo"
-                    value={formData.partNo}
-                    onChange={handleChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                    required
-                  />
-                  {errors.partNo && <p className="text-red-500 text-sm mt-1">{errors.partNo}</p>}
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                  />
-                  {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Floor ID <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex">
-                    <select
-                      name="floorID"
-                      value={formData.floorID}
-                      onChange={handleChange}
-                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                      required
-                    >
-                      <option value="">Select Floor</option>
-                      {(floorOptions || []).map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => {/* Add floor logic */ }}
-                      className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
-                    >
-                      +
-                    </button>
-                  </div>
-                  {errors.floorID && <p className="text-red-500 text-sm mt-1">{errors.floorID}</p>}
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Brand <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex">
-                    <select
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                      required
-                    >
-                      <option value="">Select Brand</option>
-                      {(brandOptions || []).map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => {/* Add brand logic */ }}
-                      className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
-                    >
-                      +
-                    </button>
-                  </div>
-                  {errors.brand && <p className="text-red-500 text-sm mt-1">{errors.brand}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Essential Information</h3>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                  required
+                />
+                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                <div className="flex">
+                  <select
+                    name="make"
+                    value={formData.make}
+                    onChange={handleInputChange}
+                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                  >
+                    <option value="">Select Make</option>
+                    {existingOptions.make.map((option) => (
+                      <option key={option.id} value={option.value}>{option.value}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => openAddModal('make')}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
+                  >
+                    +
+                  </button>
                 </div>
               </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Pricing & Details</h3>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sale Price <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
-                    <input
-                      type="number"
-                      name="salePrice"
-                      value={formData.salePrice}
-                      onChange={handleChange}
-                      className="block w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                      step="0.01"
-                      required
-                    />
-                  </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <input
+                  type="text"
+                  name="model"
+                  value={formData.model}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                <input
+                  type="text"
+                  name="capacity"
+                  value={formData.capacity}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Threshold Qty</label>
+                <input
+                  type="text"
+                  name="thresholdQty"
+                  value={formData.thresholdQty}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Pricing & Details</h3>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                  <input
+                    type="number"
+                    name="salePrice"
+                    value={formData.salePrice}
+                    onChange={handleInputChange}
+                    className="block w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    step="0.01"
+                  />
                   {errors.salePrice && <p className="text-red-500 text-sm mt-1">{errors.salePrice}</p>}
                 </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Purchase Price <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
-                    <input
-                      type="number"
-                      name="purchasePrice"
-                      value={formData.purchasePrice}
-                      onChange={handleChange}
-                      className="block w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                      step="0.01"
-                      required
-                    />
-                  </div>
-                  {errors.purchasePrice && <p className="text-red-500 text-sm mt-1">{errors.purchasePrice}</p>}
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <div className="flex">
-                    <select
-                      name="type"
-                      value={formData.type}
-                      onChange={handleChange}
-                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                    >
-                      <option value="">Select Type</option>
-                      {(typeOptions || []).map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => {/* Add type logic */ }}
-                      className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Door Type</label>
-                  <div className="flex">
-                    <select
-                      name="doorType"
-                      value={formData.doorType}
-                      onChange={handleChange}
-                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                    >
-                      <option value="">Select Door Type</option>
-                      {(doorTypeOptions || []).map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => {/* Add door type logic */ }}
-                      className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tax Preference</label>
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <div className="flex">
                   <select
-                    name="taxPreference"
-                    value={formData.taxPreference}
-                    onChange={handleChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    name="type"
+                    value={formData.type}
+                    onChange={handleInputChange}
+                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
-                    <option value="Taxable">Taxable</option>
-                    <option value="Non-Taxable">Non-Taxable</option>
+                    <option value="">Select Type</option>
+                    {existingOptions.type.map((option) => (
+                      <option key={option.id} value={option.value}>{option.value}</option>
+                    ))}
                   </select>
-                </div>
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tax</label>
-                  <select
-                    name="tax"
-                    value={formData.tax}
-                    onChange={handleChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                  <button
+                    type="button"
+                    onClick={() => openAddModal('type')}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
                   >
-                    <option value="GST18(18%)">GST18(18%)</option>
-                    <option value="GST5(5%)">GST5(5%)</option>
-                    <option value="None">None</option>
-                  </select>
+                    +
+                  </button>
                 </div>
               </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <input
+                  type="text"
+                  name="unit"
+                  value={formData.unit}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tax Preference</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="taxPreference"
+                      value="Taxable"
+                      checked={formData.taxPreference === 'Taxable'}
+                      onChange={handleInputChange}
+                      className="mr-2"
+                    />
+                    Taxable
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="taxPreference"
+                      value="Non-Taxable"
+                      checked={formData.taxPreference === 'Non-Taxable'}
+                      onChange={handleInputChange}
+                      className="mr-2"
+                    />
+                    Non-Taxable
+                  </label>
+                </div>
+                {formData.taxPreference === 'Taxable' && (
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">SAC</label>
+                    <input
+                      type="text"
+                      name="sac"
+                      value={formData.sac}
+                      onChange={handleInputChange}
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    />
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">IGST</label>
+                    <input
+                      type="text"
+                      name="sacIgst"
+                      value={formData.sacIgst}
+                      onChange={handleInputChange}
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    />
+                  </>
+                )}
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="serviceType"
+                      value="Goods"
+                      checked={formData.serviceType === 'Goods'}
+                      onChange={handleInputChange}
+                      className="mr-2"
+                    />
+                    Goods
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="serviceType"
+                      value="Services"
+                      checked={formData.serviceType === 'Services'}
+                      onChange={handleInputChange}
+                      className="mr-2"
+                    />
+                    Services
+                  </label>
+                </div>
+                {formData.serviceType === 'Goods' && (
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">GST</label>
+                    <input
+                      type="text"
+                      name="gst"
+                      value={formData.gst}
+                      onChange={handleInputChange}
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    />
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">Part No</label>
+                    <input
+                      type="text"
+                      name="partNo"
+                      value={formData.partNo}
+                      onChange={handleInputChange}
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    />
+                  </>
+                )}
+                {formData.serviceType === 'Services' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">SAC Code</label>
+                    <input
+                      type="text"
+                      name="sac"
+                      value={formData.sac}
+                      onChange={handleInputChange}
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
-              <button
-                onClick={handleCancel}
-                className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-md"
-              >
-                {loading ? 'Saving...' : 'Create Item'}
-              </button>
-            </div>
-          </form>
+          </div>
+        </div>
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+          <button
+            onClick={handleCancel}
+            className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-[#213066] hover:to-[#182755] transition-all duration-200 shadow-md"
+          >
+            {loading ? 'Saving...' : 'Create Item'}
+          </button>
         </div>
       </div>
+
+      {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) => (
+        isOpen && (
+          <div key={field} className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                {isEditing ? `Edit ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add New ${field.replace(/([A-Z])/g, ' $1').trim()}`}
+              </h3>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => setModalState((prev) => ({
+                  ...prev,
+                  [field]: { ...prev[field], value: e.target.value },
+                }))}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 mb-4"
+                placeholder={`Enter new ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`}
+              />
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Existing {field.replace(/([A-Z])/g, ' $1').trim()}s</h4>
+                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="p-2 text-left">Name</th>
+                        <th className="p-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {existingOptions[field].length > 0 ? (
+                        existingOptions[field].map((option) => (
+                          <tr key={option.id} className="border-t">
+                            <td className="p-2">{option.value}</td>
+                            <td className="p-2 text-right">
+                              <button
+                                onClick={() => openAddModal(field, true, option.id, option.value)}
+                                className="text-blue-500 hover:text-blue-700 mr-2"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOption(field, option.id)}
+                                className="text-red-500 hover:text-red-700"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="2" className="p-2 text-center text-gray-500">
+                            No {field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}s found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => closeAddModal(field)}
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleAddOption(field)}
+                  disabled={!value.trim()}
+                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium transition-all duration-200 ${!value.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-600 hover:to-blue-700'}`}
+                >
+                  {isEditing ? `Update ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add ${field.replace(/([A-Z])/g, ' $1').trim()}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      ))}
     </div>
   );
 };

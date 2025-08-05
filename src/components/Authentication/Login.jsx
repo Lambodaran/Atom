@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AuthImage from '../../assets/auth.jpg';
+
 
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState('username'); // 'username' or 'mobile'
+  const [loginMethod, setLoginMethod] = useState('email'); // Changed to 'email'
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: '',
   });
   const [error, setError] = useState(null);
@@ -28,7 +29,7 @@ const LoginPage = () => {
     e.preventDefault();
     setError(null);
 
-    if (loginMethod === 'username') {
+    if (loginMethod === 'email') {
       try {
         const response = await fetch(`${apiBaseUrl}/auth/login/`, {
           method: 'POST',
@@ -36,7 +37,7 @@ const LoginPage = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            username: formData.username,
+            email: formData.email,
             password: formData.password,
           }),
         });
@@ -61,7 +62,6 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Form */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
@@ -75,16 +75,15 @@ const LoginPage = () => {
             </div>
           )}
 
-          {/* Login Method Toggle */}
           <div className="flex mb-6 rounded-lg bg-blue-50 p-1">
             <button
               type="button"
-              onClick={() => setLoginMethod('username')}
+              onClick={() => setLoginMethod('email')}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                loginMethod === 'username' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-blue-600'
+                loginMethod === 'email' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-blue-600'
               }`}
             >
-              Username Login
+              Email Login
             </button>
             <button
               type="button"
@@ -98,31 +97,29 @@ const LoginPage = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {loginMethod === 'username' ? (
+            {loginMethod === 'email' ? (
               <>
-                {/* Username Field */}
                 <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
+                      <Mail className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
                       onChange={handleChange}
                       className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter your username"
+                      placeholder="example@gmail.com"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Password Field */}
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                     Password
@@ -155,7 +152,6 @@ const LoginPage = () => {
                   </div>
                 </div>
 
-                {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <input
@@ -181,7 +177,6 @@ const LoginPage = () => {
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
@@ -190,26 +185,21 @@ const LoginPage = () => {
             </button>
           </form>
 
-          {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-                   <Link 
-              to="/signup" 
-              className=" text-black font-bold px-4 py-2 rounded-md  transition-colors"
-            >
-              Sign up
-            </Link>
+              <a href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                Sign up
+              </a>
             </p>
           </div>
         </div>
       </div>
 
-      {/* Right side - Image */}
       <div className="hidden md:block md:w-1/2 bg-gray-100">
         <div 
           className="h-full w-full bg-cover bg-center" 
-          style={{ backgroundImage: `url(${AuthImage})` }}
+          style={{ backgroundImage:`url(${AuthImage})`}}
         ></div>
       </div>
     </div>

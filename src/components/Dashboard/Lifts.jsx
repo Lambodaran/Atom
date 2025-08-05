@@ -45,6 +45,40 @@ const Lifts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
+  const handleImportCSV = async (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      toast.error('Please select a CSV file to import.');
+      return;
+    }
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please select a valid CSV file.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      await axios.post(`${apiBaseUrl}/auth/import-lifts-csv/`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Lifts imported successfully.');
+      fetchData(); // Refresh the lift data
+      document.getElementById('options-dropdown').classList.add('hidden');
+    } catch (error) {
+      console.error('Error importing lifts:', error);
+      toast.error(error.response?.data?.error || 'Failed to import lifts.');
+      document.getElementById('options-dropdown').classList.add('hidden');
+    }
+  };
+
   // Fetch data with retry logic
   const fetchData = async (retryCount = 3) => {
     setLoading(true);
@@ -385,17 +419,22 @@ const Lifts = () => {
                   <Download className="mr-1 h-5 w-5 text-gray-400" />
                   Export
                 </button>
-                <button
-                  className="flex w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                <label
+                  className="flex w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 cursor-pointer"
                   role="menuitem"
-                  onClick={() => {
-                    // Handle import CSV
-                    document.getElementById('options-dropdown').classList.add('hidden');
-                  }}
                 >
                   <Upload className="mr-1 h-5 w-5 text-gray-400" />
                   Import CSV
-                </button>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleImportCSV(e);
+                      document.getElementById('options-dropdown').classList.add('hidden');
+                    }}
+                  />
+                </label>
                 <button
                   className="flex w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   role="menuitem"

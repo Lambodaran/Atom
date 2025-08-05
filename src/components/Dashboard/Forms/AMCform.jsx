@@ -486,7 +486,7 @@ const AMCForm = ({
               </div>
 
               {/* Upload Files */}
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Upload Files (Max 1 MB)
                 </label>
@@ -496,7 +496,7 @@ const AMCForm = ({
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 />
-              </div>
+              </div> */}
 
               {/* Equipment No */}
               <div className="form-group">

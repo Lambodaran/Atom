@@ -30,10 +30,12 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
   const [existingOptions, setExistingOptions] = useState({
     make: [],
     type: [],
+    unit: [],
   });
   const [modalState, setModalState] = useState({
     make: { isOpen: false, value: '', isEditing: false, editId: null },
     type: { isOpen: false, value: '', isEditing: false, editId: null },
+    unit: { isOpen: false, value: '', isEditing: false, editId: null },
   });
 
   const createAxiosInstance = () => {
@@ -57,6 +59,7 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
       const endpoints = {
         make: 'makes',
         type: 'types',
+        unit: 'units',
       };
       const response = await axiosInstance.get(`${apiBaseUrl}/${endpoints[field]}/`);
       setExistingOptions((prev) => ({
@@ -78,7 +81,7 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
   };
 
   useEffect(() => {
-    const fields = ['make', 'type'];
+    const fields = ['make', 'type', 'unit'];
     fields.forEach(field => fetchOptions(field));
   }, []);
 
@@ -121,10 +124,12 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
       const apiEndpoints = {
         make: 'edit-make',
         type: 'edit-type',
+        unit: 'edit-unit',
       };
       const addEndpoints = {
         make: 'add-make',
         type: 'add-type',
+        unit: 'add-unit',
       };
       const isEditing = modalState[field].isEditing;
       const editId = modalState[field].editId;
@@ -162,6 +167,7 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
       const deleteEndpoints = {
         make: 'delete-make',
         type: 'delete-type',
+        unit: 'delete-unit',
       };
       await axiosInstance.delete(`${apiBaseUrl}/${deleteEndpoints[field]}/${id}/`);
       toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
@@ -209,7 +215,7 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
         serviceType: formData.serviceType,
         gst: formData.gst,
         partNo: formData.partNo,
-        sac: formData.sac,
+        sac: '',
         sacIgst: formData.sacIgst,
       };
 
@@ -368,13 +374,26 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                <input
-                  type="text"
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleInputChange}
-                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                />
+                <div className="flex">
+                  <select
+                    name="unit"
+                    value={formData.unit}
+                    onChange={handleInputChange}
+                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                  >
+                    <option value="">Select Unit</option>
+                    {existingOptions.unit.map((option) => (
+                      <option key={option.id} value={option.value}>{option.value}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => openAddModal('unit')}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -414,7 +433,7 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                 </div>
                 {formData.taxPreference === 'Taxable' && (
                   <>
-                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">SAC</label>
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">GST</label>
                     <input
                       type="text"
                       name="sac"

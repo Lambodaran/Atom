@@ -73,10 +73,8 @@ const AMCForm = ({
       const response = await axiosInstance.get(`${apiBaseUrl}/${endpoint}/`);
       if (field === 'amcType') {
         setExistingAmcTypes(response.data);
-        dropdownOptions.setAmcTypeOptions(response.data.map(item => item.name));
       } else if (field === 'paymentTerms') {
         setExistingPaymentTerms(response.data);
-        dropdownOptions.setPaymentTermsOptions(response.data.map(item => item.name));
       } else if (field === 'amcServiceItem') {
         setAmcServiceItems(response.data);
       }
@@ -403,9 +401,9 @@ const AMCForm = ({
                     className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
                     <option value="">Select Type</option>
-                    {dropdownOptions.amcTypeOptions?.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                    {existingAmcTypes.map((option) => (
+                      <option key={option.id} value={option.name}>
+                        {option.name}
                       </option>
                     ))}
                   </select>
@@ -432,9 +430,9 @@ const AMCForm = ({
                     className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
                     <option value="">Select Terms</option>
-                    {dropdownOptions.paymentTermsOptions?.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                    {existingPaymentTerms.map((option) => (
+                      <option key={option.id} value={option.name}>
+                        {option.name}
                       </option>
                     ))}
                   </select>

@@ -74,8 +74,7 @@ function App() {
         {/* Authentication routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-
+<Route path="/reset-password/:uid/:token" element={<ResetPasswordPage />} /> {/* Updated route */}
         {/* New Item Form route */}
       </Routes>
     </Router>

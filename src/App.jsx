@@ -10,7 +10,7 @@ import NextMonthExpire from './components/Dashboard/NextMonthExpire';
 import LastMonthExpire from './components/Dashboard/LastMonthExpire';
 import Customers from './components/Dashboard/Customers';
 import DeliveryChallan from './components/Dashboard/DeliveryChallan';
-import QuotationTable from './components/Dashboard/QuotationTable';
+import Quotation from './components/Dashboard/Quotation';
 import Orders from './components/Dashboard/Orders';
 import Invoice from './components/Dashboard/Invoice';
 import PaymentRecieved from './components/Dashboard/PaymentRecieved';
@@ -52,7 +52,7 @@ function App() {
           <Route path="/dashboard/last-month" element={<LastMonthExpire />} />
           <Route path="/dashboard/customers" element={<Customers />} />
           <Route path="/dashboard/delivery-challan" element={<DeliveryChallan />} />
-          <Route path="/dashboard/quotation" element={<QuotationTable />} />
+          <Route path="/dashboard/quotation" element={<Quotation />} />
           <Route path="/dashboard/orders" element={<Orders />} />
           <Route path="/dashboard/invoice" element={<Invoice />} />
           <Route path="/dashboard/payment-received" element={<PaymentRecieved />} />

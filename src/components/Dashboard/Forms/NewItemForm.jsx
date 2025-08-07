@@ -6,24 +6,23 @@ import { useNavigate } from 'react-router-dom';
 
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
-const NewItemForm = ({ onCancel, onSubmit }) => {
+const NewItemForm = ({ onCancel, onSubmit, item = null, isEditing = false }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
-    make: '',
-    model: '',
-    capacity: '',
-    thresholdQty: '',
-    salePrice: 0,
-    type: '',
-    unit: '',
-    description: '',
-    taxPreference: 'Taxable',
-    serviceType: 'Goods',
-    gst: '',
-    partNo: '',
-    sac: '',
-    sacIgst: '',
+    name: item?.name || '',
+    make: null, // Initialize as null, update with ID in useEffect
+    model: item?.model || '',
+    capacity: item?.capacity || '',
+    thresholdQty: item?.threshold_qty || '',
+    salePrice: item?.sale_price || 0,
+    type: null, // Initialize as null, update with ID in useEffect
+    unit: null, // Initialize as null, update with ID in useEffect
+    description: item?.description || '',
+    tax_Preference: item?.tax_preference || 'Taxable',
+    service_type: item?.service_type || 'Goods',
+    gst: item?.gst || '',
+    sac: item?.sac_code || '',
+    sacIgst: item?.igst || '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -37,6 +36,18 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
     type: { isOpen: false, value: '', isEditing: false, editId: null },
     unit: { isOpen: false, value: '', isEditing: false, editId: null },
   });
+  const [optionsLoading, setOptionsLoading] = useState({
+    make: true,
+    type: true,
+    unit: true,
+  });
+
+  // Helper function to get dropdown value
+  const getDropdownValue = (field, id) => {
+    if (!existingOptions[field] || optionsLoading[field]) return '';
+    const option = existingOptions[field].find((opt) => opt.id === id);
+    return option ? option.value : '';
+  };
 
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
@@ -57,15 +68,16 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
 
     try {
       const endpoints = {
-        make: 'makes',
-        type: 'types',
-        unit: 'units',
+        make: 'auth/makes',
+        type: 'auth/types',
+        unit: 'auth/units',
       };
       const response = await axiosInstance.get(`${apiBaseUrl}/${endpoints[field]}/`);
       setExistingOptions((prev) => ({
         ...prev,
         [field]: response.data,
       }));
+      setOptionsLoading((prev) => ({ ...prev, [field]: false }));
     } catch (error) {
       console.error(`Error fetching ${field}:`, error);
       if (error.response?.status === 401) {
@@ -76,21 +88,49 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
         setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
       } else {
         toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+        setOptionsLoading((prev) => ({ ...prev, [field]: false }));
       }
     }
   };
 
   useEffect(() => {
     const fields = ['make', 'type', 'unit'];
-    fields.forEach(field => fetchOptions(field));
+    fields.forEach((field) => fetchOptions(field));
   }, []);
+
+  // Update formData with IDs based on item.make_value, item.type_value, item.unit_value
+  useEffect(() => {
+    if (isEditing && item && !optionsLoading.make && !optionsLoading.type && !optionsLoading.unit) {
+      const makeOption = existingOptions.make.find((opt) => opt.value === item.make_value);
+      const typeOption = existingOptions.type.find((opt) => opt.value === item.type_value);
+      const unitOption = existingOptions.unit.find((opt) => opt.value === item.unit_value);
+
+      setFormData((prev) => ({
+        ...prev,
+        make: makeOption ? makeOption.id : null,
+        type: typeOption ? typeOption.id : null,
+        unit: unitOption ? unitOption.id : null,
+      }));
+    }
+    // console.log('Item prop:', item); // Debug: Log item prop
+    // console.log('Existing options:', existingOptions); // Debug: Log existingOptions
+    // console.log('Updated formData:', formData); // Debug: Log formData after update
+  }, [isEditing, item, existingOptions, optionsLoading.make, optionsLoading.type, optionsLoading.unit]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === 'make' || name === 'type' || name === 'unit') {
+      const selectedOption = existingOptions[name].find((option) => option.value === value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: selectedOption ? selectedOption.id : null,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -122,14 +162,14 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
 
     try {
       const apiEndpoints = {
-        make: 'edit-make',
-        type: 'edit-type',
-        unit: 'edit-unit',
+        make: 'auth/edit-make',
+        type: 'auth/edit-type',
+        unit: 'auth/edit-unit',
       };
       const addEndpoints = {
-        make: 'add-make',
-        type: 'add-type',
-        unit: 'add-unit',
+        make: 'auth/add-make',
+        type: 'auth/add-type',
+        unit: 'auth/add-unit',
       };
       const isEditing = modalState[field].isEditing;
       const editId = modalState[field].editId;
@@ -138,8 +178,8 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
         await axiosInstance.put(`${apiBaseUrl}/${apiEndpoints[field]}/${editId}/`, { value });
         toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} updated successfully.`);
       } else {
-        await axiosInstance.post(`${apiBaseUrl}/${addEndpoints[field]}/`, { value });
-        setFormData((prev) => ({ ...prev, [field]: value }));
+        const response = await axiosInstance.post(`${apiBaseUrl}/${addEndpoints[field]}/`, { value });
+        setFormData((prev) => ({ ...prev, [field]: response.data.id }));
         toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} added successfully.`);
       }
 
@@ -165,13 +205,16 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
 
     try {
       const deleteEndpoints = {
-        make: 'delete-make',
-        type: 'delete-type',
-        unit: 'delete-unit',
+        make: 'auth/delete-make',
+        type: 'auth/delete-type',
+        unit: 'auth/delete-unit',
       };
       await axiosInstance.delete(`${apiBaseUrl}/${deleteEndpoints[field]}/${id}/`);
       toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
       fetchOptions(field);
+      if (formData[field] === id) {
+        setFormData((prev) => ({ ...prev, [field]: null }));
+      }
     } catch (error) {
       console.error(`Error deleting ${field}:`, error);
       if (error.response?.status === 401) {
@@ -200,32 +243,60 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
     }
 
     setLoading(true);
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const itemData = {
         name: formData.name,
         make: formData.make,
         model: formData.model,
         capacity: formData.capacity,
-        thresholdQty: formData.thresholdQty,
-        salePrice: formData.salePrice,
+        threshold_qty: parseInt(formData.thresholdQty) || null,
+        sale_price: parseFloat(formData.salePrice) || 0,
         type: formData.type,
         unit: formData.unit,
         description: formData.description,
-        taxPreference: formData.taxPreference,
-        serviceType: formData.serviceType,
+        tax_preference: formData.tax_Preference,
+        service_type: formData.service_type,
         gst: formData.gst,
-        partNo: formData.partNo,
-        sac: '',
-        sacIgst: formData.sacIgst,
+        sac_code: formData.sac,
+        igst: formData.sacIgst,
       };
 
-      const response = await axios.post(`${apiBaseUrl}/add_item/`, itemData, { withCredentials: true });
-      toast.success(response.data.message || 'Item created successfully.');
-      if (onSubmit) onSubmit(itemData);
-      else navigate('/items');
+      let response;
+      if (isEditing) {
+        response = await axiosInstance.put(`${apiBaseUrl}/auth/edit-item/${item.id}/`, itemData);
+        toast.success(response.data.message || 'Item updated successfully.');
+      } else {
+        response = await axiosInstance.post(`${apiBaseUrl}/auth/add-item/`, itemData);
+        toast.success(response.data.message || 'Item created successfully.');
+      }
+
+      if (onSubmit) {
+        onSubmit({
+          ...itemData,
+          id: isEditing ? item.id : response.data.item_id,
+          item_number: isEditing ? item.item_number : response.data.item_id ? `PART${1000 + response.data.item_id}` : item.item_number,
+          make_value: existingOptions.make.find((opt) => opt.id === itemData.make)?.value || null,
+          type_value: existingOptions.type.find((opt) => opt.id === itemData.type)?.value || null,
+          unit_value: existingOptions.unit.find((opt) => opt.id === itemData.unit)?.value || null,
+        });
+      } else {
+        navigate('/items');
+      }
     } catch (error) {
-      console.error('Error creating item:', error.response?.data || error);
-      toast.error(error.response?.data?.error || 'Failed to create item.');
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} item:`, error.response?.data || error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(error.response?.data?.error || `Failed to ${isEditing ? 'update' : 'create'} item.`);
+      }
     } finally {
       setLoading(false);
     }
@@ -234,18 +305,17 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
   const handleCancel = () => {
     setFormData({
       name: '',
-      make: '',
+      make: null,
       model: '',
       capacity: '',
       thresholdQty: '',
       salePrice: 0,
-      type: '',
-      unit: '',
+      type: null,
+      unit: null,
       description: '',
-      taxPreference: 'Taxable',
-      serviceType: 'Goods',
+      tax_Preference: 'Taxable',
+      service_type: 'Goods',
       gst: '',
-      partNo: '',
       sac: '',
       sacIgst: '',
     });
@@ -254,14 +324,14 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
         <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
-          <h2 className="text-2xl font-bold text-white">Create New Item</h2>
-          <p className="text-white">Fill in all required fields (*) to add an item</p>
+          <h2 className="text-2xl font-bold text-white">{isEditing ? 'Edit Item' : 'Create New Item'}</h2>
+          <p className="text-white">Fill in all required fields (*) to {isEditing ? 'update' : 'add'} an item</p>
         </div>
         <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Essential Information</h3>
               <div className="form-group">
@@ -281,17 +351,23 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
                 <div className="flex">
-                  <select
-                    name="make"
-                    value={formData.make}
-                    onChange={handleInputChange}
-                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                  >
-                    <option value="">Select Make</option>
-                    {existingOptions.make.map((option) => (
-                      <option key={option.id} value={option.value}>{option.value}</option>
-                    ))}
-                  </select>
+                  {optionsLoading.make || !existingOptions.make.length ? (
+                    <p className="text-gray-500">Loading makes...</p>
+                  ) : (
+                    <select
+                      name="make"
+                      value={getDropdownValue('make', formData.make)}
+                      onChange={handleInputChange}
+                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    >
+                      <option value="">Select Make</option>
+                      {existingOptions.make.map((option) => (
+                        <option key={option.id} value={option.value}>
+                          {option.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <button
                     type="button"
                     onClick={() => openAddModal('make')}
@@ -312,57 +388,25 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                 />
               </div>
               <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
-                <input
-                  type="text"
-                  name="capacity"
-                  value={formData.capacity}
-                  onChange={handleInputChange}
-                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                />
-              </div>
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Threshold Qty</label>
-                <input
-                  type="text"
-                  name="thresholdQty"
-                  value={formData.thresholdQty}
-                  onChange={handleInputChange}
-                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                />
-              </div>
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Pricing & Details</h3>
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
-                  <input
-                    type="number"
-                    name="salePrice"
-                    value={formData.salePrice}
-                    onChange={handleInputChange}
-                    className="block w-full pl-8 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                    step="0.01"
-                  />
-                  {errors.salePrice && <p className="text-red-500 text-sm mt-1">{errors.salePrice}</p>}
-                </div>
-              </div>
-              <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <div className="flex">
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                  >
-                    <option value="">Select Type</option>
-                    {existingOptions.type.map((option) => (
-                      <option key={option.id} value={option.value}>{option.value}</option>
-                    ))}
-                  </select>
+                  {optionsLoading.type || !existingOptions.type.length ? (
+                    <p className="text-gray-500">Loading types...</p>
+                  ) : (
+                    <select
+                      name="type"
+                      value={getDropdownValue('type', formData.type)}
+                      onChange={handleInputChange}
+                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    >
+                      <option value="">Select Type</option>
+                      {existingOptions.type.map((option) => (
+                        <option key={option.id} value={option.value}>
+                          {option.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <button
                     type="button"
                     onClick={() => openAddModal('type')}
@@ -373,19 +417,57 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                 </div>
               </div>
               <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                <input
+                  type="text"
+                  name="capacity"
+                  value={formData.capacity}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Threshold Quantity</label>
+                <input
+                  type="number"
+                  name="thresholdQty"
+                  value={formData.thresholdQty}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sale Price</label>
+                <input
+                  type="number"
+                  name="salePrice"
+                  value={formData.salePrice}
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                  step="0.01"
+                />
+                {errors.salePrice && <p className="text-red-500 text-sm mt-1">{errors.salePrice}</p>}
+              </div>
+              <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
                 <div className="flex">
-                  <select
-                    name="unit"
-                    value={formData.unit}
-                    onChange={handleInputChange}
-                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
-                  >
-                    <option value="">Select Unit</option>
-                    {existingOptions.unit.map((option) => (
-                      <option key={option.id} value={option.value}>{option.value}</option>
-                    ))}
-                  </select>
+                  {optionsLoading.unit || !existingOptions.unit.length ? (
+                    <p className="text-gray-500">Loading units...</p>
+                  ) : (
+                    <select
+                      name="unit"
+                      value={getDropdownValue('unit', formData.unit)}
+                      onChange={handleInputChange}
+                      className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    >
+                      <option value="">Select Unit</option>
+                      {existingOptions.unit.map((option) => (
+                        <option key={option.id} value={option.value}>
+                          {option.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <button
                     type="button"
                     onClick={() => openAddModal('unit')}
@@ -411,9 +493,9 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                   <label className="flex items-center">
                     <input
                       type="radio"
-                      name="taxPreference"
+                      name="tax_Preference"
                       value="Taxable"
-                      checked={formData.taxPreference === 'Taxable'}
+                      checked={formData.tax_Preference === 'Taxable'}
                       onChange={handleInputChange}
                       className="mr-2"
                     />
@@ -422,16 +504,16 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                   <label className="flex items-center">
                     <input
                       type="radio"
-                      name="taxPreference"
+                      name="tax_Preference"
                       value="Non-Taxable"
-                      checked={formData.taxPreference === 'Non-Taxable'}
+                      checked={formData.tax_Preference === 'Non-Taxable'}
                       onChange={handleInputChange}
                       className="mr-2"
                     />
                     Non-Taxable
                   </label>
                 </div>
-                {formData.taxPreference === 'Taxable' && (
+                {formData.tax_Preference === 'Taxable' && (
                   <>
                     <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">GST</label>
                     <input
@@ -458,9 +540,9 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                   <label className="flex items-center">
                     <input
                       type="radio"
-                      name="serviceType"
+                      name="service_type"
                       value="Goods"
-                      checked={formData.serviceType === 'Goods'}
+                      checked={formData.service_type === 'Goods'}
                       onChange={handleInputChange}
                       className="mr-2"
                     />
@@ -469,18 +551,18 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                   <label className="flex items-center">
                     <input
                       type="radio"
-                      name="serviceType"
+                      name="service_type"
                       value="Services"
-                      checked={formData.serviceType === 'Services'}
+                      checked={formData.service_type === 'Services'}
                       onChange={handleInputChange}
                       className="mr-2"
                     />
                     Services
                   </label>
                 </div>
-                {formData.serviceType === 'Goods' && (
+                {formData.service_type === 'Goods' && (
                   <>
-                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">GST</label>
+                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">SAC</label>
                     <input
                       type="text"
                       name="gst"
@@ -488,17 +570,9 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                       onChange={handleInputChange}
                       className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                     />
-                    <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">Part No</label>
-                    <input
-                      type="text"
-                      name="partNo"
-                      value={formData.partNo}
-                      onChange={handleInputChange}
-                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                    />
                   </>
                 )}
-                {formData.serviceType === 'Services' && (
+                {formData.service_type === 'Services' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">SAC Code</label>
                     <input
@@ -526,25 +600,27 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
             disabled={loading}
             className="px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-[#213066] hover:to-[#182755] transition-all duration-200 shadow-md"
           >
-            {loading ? 'Saving...' : 'Create Item'}
+            {loading ? 'Saving...' : isEditing ? 'Update Item' : 'Create Item'}
           </button>
         </div>
       </div>
 
       {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) => (
         isOpen && (
-          <div key={field} className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
+          <div key={field} className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
                 {isEditing ? `Edit ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add New ${field.replace(/([A-Z])/g, ' $1').trim()}`}
               </h3>
               <input
                 type="text"
                 value={value}
-                onChange={(e) => setModalState((prev) => ({
-                  ...prev,
-                  [field]: { ...prev[field], value: e.target.value },
-                }))}
+                onChange={(e) =>
+                  setModalState((prev) => ({
+                    ...prev,
+                    [field]: { ...prev[field], value: e.target.value },
+                  }))
+                }
                 className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 mb-4"
                 placeholder={`Enter new ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`}
               />
@@ -602,7 +678,9 @@ const NewItemForm = ({ onCancel, onSubmit }) => {
                 <button
                   onClick={() => handleAddOption(field)}
                   disabled={!value.trim()}
-                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium transition-all duration-200 ${!value.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-600 hover:to-blue-700'}`}
+                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium transition-all duration-200 ${
+                    !value.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-600 hover:to-blue-700'
+                  }`}
                 >
                   {isEditing ? `Update ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add ${field.replace(/([A-Z])/g, ' $1').trim()}`}
                 </button>

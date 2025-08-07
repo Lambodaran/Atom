@@ -32,6 +32,7 @@ import Home from './components/Homepage/Home'; // Assuming Home component exists
 // Authentication
 import Login from './components/Authentication/Login';
 import Signup from './components/Authentication/Signup';
+import ResetPasswordPage from './components/Authentication/ResetPassword';
 
 function App() {
   return (
@@ -73,6 +74,9 @@ function App() {
         {/* Authentication routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* New Item Form route */}
       </Routes>
     </Router>
   );

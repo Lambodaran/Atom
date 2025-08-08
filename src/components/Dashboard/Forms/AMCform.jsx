@@ -15,7 +15,7 @@ const AMCForm = ({
   const [newAMC, setNewAMC] = useState({
     customer: '',
     referenceId: '',
-    amc: '',
+    amc_name: '',
     invoiceFrequency: '',
     amcType: '',
     paymentTerms: '',
@@ -220,82 +220,108 @@ const AMCForm = ({
   };
 
   // Handle form submission
-  const handleSubmit = async () => {
-    const requiredFields = ['referenceId', 'startDate', 'endDate'];
-    const isValid = requiredFields.every((field) => newAMC[field]);
+ const handleSubmit = async () => {
+  const requiredFields = ['customer', 'referenceId', 'startDate', 'endDate'];
+  const missingFields = requiredFields.filter(field => !newAMC[field]);
 
-    if (!isValid) {
-      toast.error('Please fill in all required fields.');
+  if (missingFields.length > 0) {
+    toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
+    return;
+  }
+
+  if (newAMC.isGenerateContractNow && !newAMC.amcServiceItem) {
+    toast.error('Please select an AMC Service Item when generating contract');
+    return;
+  }
+
+  const axiosInstance = createAxiosInstance();
+  if (!axiosInstance) return;
+
+  try {
+    // Fetch customer list to get the customer ID
+    const customersResponse = await axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`);
+    const selectedCustomer = customersResponse.data.find(c => c.site_name === newAMC.customer);
+    
+    if (!selectedCustomer) {
+      toast.error('Selected customer not found');
       return;
     }
 
-    const axiosInstance = createAxiosInstance();
-    if (!axiosInstance) return;
-
-    try {
-      const [customers, amcTypes, paymentTerms] = await Promise.all([
-        axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`),
-        axiosInstance.get(`${apiBaseUrl}/amc/amc-types/`),
-        axiosInstance.get(`${apiBaseUrl}/amc/payment-terms/`),
-      ]);
-
-      const formData = new FormData();
-      formData.append('customer', customers.data.find(c => c.site_name === newAMC.customer)?.id || null);
-      formData.append('reference_id', newAMC.referenceId);
-      formData.append('amc', newAMC.amc);
-      formData.append('invoice_frequency', dropdownOptions.invoiceFrequencyOptions.find(f => f === newAMC.invoiceFrequency) || null);
-      formData.append('amc_type', amcTypes.data.find(t => t.name === newAMC.amcType)?.id || null);
-      formData.append('payment_terms', paymentTerms.data.find(p => p.name === newAMC.paymentTerms)?.id || null);
-      formData.append('start_date', newAMC.startDate);
-      formData.append('end_date', newAMC.endDate);
-      formData.append('equipment_no', newAMC.equipmentNo);
-      formData.append('notes', newAMC.notes);
-      formData.append('is_generate_contract', newAMC.isGenerateContractNow);
-      formData.append('no_of_services', newAMC.noOfServices);
+    const formData = new FormData();
+    formData.append('customer', selectedCustomer.id); // Use the customer ID
+    
+    // Rest of the form data remains the same
+    formData.append('reference_id', newAMC.referenceId);
+    formData.append('amc_name', newAMC.amc_name || '');
+    formData.append('invoice_frequency', newAMC.invoiceFrequency || 'annually');
+    
+    if (newAMC.amcType) {
+      const amcTypesResponse = await axiosInstance.get(`${apiBaseUrl}/amc/amc-types/`);
+      const selectedAmcType = amcTypesResponse.data.find(t => t.name === newAMC.amcType);
+      if (selectedAmcType) {
+        formData.append('amc_type', selectedAmcType.id);
+      }
+    }
+    
+    if (newAMC.paymentTerms) {
+      const paymentTermsResponse = await axiosInstance.get(`${apiBaseUrl}/amc/payment-terms/`);
+      const selectedPaymentTerms = paymentTermsResponse.data.find(p => p.name === newAMC.paymentTerms);
+      if (selectedPaymentTerms) {
+        formData.append('payment_terms', selectedPaymentTerms.id);
+      }
+    }
+    
+    formData.append('start_date', newAMC.startDate);
+    formData.append('end_date', newAMC.endDate);
+    formData.append('equipment_no', newAMC.equipmentNo || '');
+    formData.append('notes', newAMC.notes || '');
+    formData.append('is_generate_contract', newAMC.isGenerateContractNow);
+    formData.append('no_of_services', newAMC.noOfServices || 12);
+    
+    if (newAMC.amcServiceItem) {
       formData.append('amc_service_item', newAMC.amcServiceItem);
-      if (newAMC.files) {
-        formData.append('uploads_files', newAMC.files);
-      }
-      if (newAMC.isGenerateContractNow) {
-        formData.append('price', newAMC.price || 0);
-        formData.append('no_of_lifts', newAMC.no_of_lifts || 0);
-        formData.append('gst_percentage', newAMC.gst_percentage || 0);
-        formData.append('total', newAMC.total || 0);
-      }
+    }
+    
+    if (newAMC.files) {
+      formData.append('uploads_files', newAMC.files);
+    }
+    
+    if (newAMC.isGenerateContractNow) {
+      formData.append('price', newAMC.price || 0);
+      formData.append('no_of_lifts', newAMC.no_of_lifts || 0);
+      formData.append('gst_percentage', newAMC.gst_percentage || 0);
+      formData.append('total', newAMC.total || 0);
+    }
 
-      if (isEdit) {
-        await axiosInstance.put(
+    const response = isEdit 
+      ? await axiosInstance.put(
           `${apiBaseUrl}/amc/amc-update/${initialData.id}/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
-        );
-        toast.success('AMC updated successfully.');
-      } else {
-        await axiosInstance.post(
+        )
+      : await axiosInstance.post(
           `${apiBaseUrl}/amc/amc-add/`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
-        toast.success('AMC created successfully.');
-      }
 
-      onSubmitSuccess();
-      onClose();
-    } catch (error) {
-      console.error(`Error ${isEdit ? 'editing' : 'creating'} AMC:`, error);
-      if (error.response?.status === 401) {
-        toast.error('Session expired. Please log in again.');
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
-      } else {
-        toast.error(
-          error.response?.data?.error ||
-          `Failed to ${isEdit ? 'update' : 'create'} AMC.`
-        );
-      }
+    toast.success(`AMC ${isEdit ? 'updated' : 'created'} successfully.`);
+    onSubmitSuccess();
+    onClose();
+  } catch (error) {
+    console.error(`Error ${isEdit ? 'editing' : 'creating'} AMC:`, error);
+    if (error.response?.status === 401) {
+      toast.error('Session expired. Please log in again.');
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    } else {
+      const errorMsg = error.response?.data?.error || 
+                     error.response?.data?.detail || 
+                     `Failed to ${isEdit ? 'update' : 'create'} AMC.`;
+      toast.error(errorMsg);
     }
-  };
-
+  }
+};
   return (
     <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
       {/* Main Form Modal */}
@@ -357,12 +383,12 @@ const AMCForm = ({
               {/* AMC */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  AMC
+                  AMC Name
                 </label>
                 <input
                   type="text"
-                  name="amc"
-                  value={newAMC.amc}
+                  name="amc_name"
+                  value={newAMC.amc_name}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 />

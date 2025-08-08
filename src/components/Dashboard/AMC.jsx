@@ -81,8 +81,8 @@ const AMC = () => {
 
       const amcDataMapped = amcResponse.data.map(item => ({
         id: item.id,
-        amc: item.amc,
-        customer: item.customer?.value || '-',
+        amc: item.amc_name || 'N/A', // Fixed mapping to correctly use amc_name
+        customer: item.customer_name || '-', // Use customer_name from serializer
         created: new Date(item.created).toLocaleDateString('en-GB', {
           day: '2-digit',
           month: '2-digit',
@@ -94,8 +94,8 @@ const AMC = () => {
         amount: `Contract Amount: ${item.contract_amount || '0.00'}, Total Amount Paid: ${item.total_amount_paid || '0.00'}, Amount Due: ${item.amount_due || '0.00'}`,
         referenceId: item.reference_id,
         invoiceFrequency: invoiceFrequencyOptionsStatic.find(opt => opt.value === item.invoice_frequency)?.label || '-',
-        amcType: item.amc_type?.value || '-',
-        paymentTerms: item.payment_terms?.value || '-',
+        amcType: item.amc_type_name || '-', // Use amc_type_name from serializer
+        paymentTerms: item.payment_terms_name || '-', // Use payment_terms_name from serializer
         startDate: item.start_date,
         endDate: item.end_date,
         equipmentNo: item.equipment_no || '-',

@@ -152,7 +152,7 @@ const Quotation = () => {
         const token = localStorage.getItem('access_token');
         await Promise.all(
           selectedQuotations.map(id =>
-            axios.delete(`${apiBaseUrl}/sales/quotations/${id}/`, {
+            axios.delete(`${apiBaseUrl}/sales/quotation/${id}/`, {
               headers: { Authorization: `Bearer ${token}` },
             })
           )
@@ -395,73 +395,82 @@ const Quotation = () => {
           </div>
 
           {/* Filters Section */}
-          <div className="bg-white p-4 rounded-xl shadow-2xl mb-6">
-            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
-              <div>
-                <select
-                  name="period"
-                  value={filters.period}
-                  onChange={handleFilterChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#2D3A6B] focus:border-[#2D3A6B] transition-all duration-200 text-sm md:text-base appearance-none bg-white"
-                >
-                  {periodOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select
-                  name="status"
-                  value={filters.status}
-                  onChange={handleFilterChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#2D3A6B] focus:border-[#2D3A6B] transition-all duration-200 text-sm md:text-base appearance-none bg-white"
-                >
-                  {statusOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select
-                  name="quotationType"
-                  value={filters.quotationType}
-                  onChange={handleFilterChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#2D3A6B] focus:border-[#2D3A6B] transition-all duration-200 text-sm md:text-base appearance-none bg-white"
-                >
-                  {quotationTypeOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <select
-                  name="customer"
-                  value={filters.customer}
-                  onChange={handleFilterChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#2D3A6B] focus:border-[#2D3A6B] transition-all duration-200 text-sm md:text-base appearance-none bg-white"
-                >
-                  {customerOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-row space-x-2 col-span-1 xs:col-span-2 md:col-span-3 lg:col-span-4">
-                <button
-                  onClick={resetFilters}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all duration-200 text-sm md:text-base"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className="flex-1 bg-gradient-to-r from-[#2D3A6B] to-[#243158] text-white px-4 py-2.5 rounded-lg hover:from-[#213066] hover:to-[#182755] transition-all duration-200 text-sm md:text-base flex items-center justify-center shadow-md"
-                >
-                  <Search className="w-4 h-4 mr-1" />
-                  <span>Search</span>
-                </button>
-              </div>
-            </div>
-          </div>
+   <div className="bg-white p-3 md:p-4 rounded-lg shadow-lg mb-4 md:mb-6">
+  <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 gap-3 md:gap-4 items-end">
+    {/* Period Filter */}
+    <div className="xl:col-span-1">
+      <select
+        name="period"
+        value={filters.period}
+        onChange={handleFilterChange}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#2D3A6B] text-sm md:text-base"
+      >
+        {periodOptions.map(option => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Status Filter */}
+    <div className="xl:col-span-1">
+      <select
+        name="status"
+        value={filters.status}
+        onChange={handleFilterChange}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#2D3A6B] text-sm md:text-base"
+      >
+        {statusOptions.map(option => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Quotation Type Filter */}
+    <div className="xl:col-span-1">
+      <select
+        name="quotationType"
+        value={filters.quotationType}
+        onChange={handleFilterChange}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#2D3A6B] text-sm md:text-base"
+      >
+        {quotationTypeOptions.map(option => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Customer Filter */}
+    <div className="xl:col-span-1">
+      <select
+        name="customer"
+        value={filters.customer}
+        onChange={handleFilterChange}
+        className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#2D3A6B] text-sm md:text-base"
+      >
+        {customerOptions.map(option => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Filter Actions */}
+    <div className="flex flex-row space-x-2 col-span-1 xs:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-1 2xl:col-span-1">
+      <button
+        onClick={resetFilters}
+        className="flex-1 bg-gray-200 text-gray-700 px-3 md:px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200 text-sm md:text-base"
+      >
+        Reset
+      </button>
+      <button
+        onClick={() => setCurrentPage(1)}
+        className="flex-1 bg-[#2D3A6B] text-white px-3 md:px-4 py-2 rounded-lg hover:bg-[#1d264d] transition duration-200 text-sm md:text-base flex items-center justify-center"
+      >
+        <Search className="w-4 h-4 mr-1" />
+        <span>Search</span>
+      </button>
+    </div>
+  </div>
+</div>
 
           {/* Tablet and Desktop View */}
           <div className="hidden md:block bg-white rounded-xl shadow-2xl overflow-hidden">

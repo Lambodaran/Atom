@@ -9,7 +9,6 @@ const QuotationForm = ({
   onClose,
   onSubmitSuccess,
   apiBaseUrl,
-  dropdownOptions = {},
 }) => {
   // Form state
   const [formData, setFormData] = useState({
@@ -22,7 +21,7 @@ const QuotationForm = ({
     date: '',
     remark: '',
     otherRemark: '',
-    lifts: [],
+    lift: '',
     files: [],
     ...initialData,
   });
@@ -31,14 +30,78 @@ const QuotationForm = ({
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sales executive options (static for now, can be fetched from API if needed)
-  const salesExecutiveOptions = [
-    'Select Executive',
-    'John Doe',
-    'Jane Smith',
-    'Alex Johnson',
-    'Emily Davis',
-  ];
+  // State for dropdown options
+  const [existingOptions, setExistingOptions] = useState({
+    customer: [],
+    amcType: [],
+    lift: [],
+  });
+
+  // Centralized Axios instance with Bearer token
+  const createAxiosInstance = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return null;
+    }
+    return axios.create({
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  };
+
+  // Fetch existing options
+ const fetchOptions = async (field, retryCount = 2) => {
+  const axiosInstance = createAxiosInstance();
+  if (!axiosInstance) return;
+
+  try {
+    const endpoints = {
+      customer: 'sales/customer-list/',
+      amcType: 'amc/amc-types/',
+      lift: 'auth/lift_list/',
+    };
+    const response = await axiosInstance.get(`${apiBaseUrl}/${endpoints[field]}`);
+    console.log(`Fetched ${field} data:`, response.data);
+    let options = response.data?.results || response.data?.data || response.data || [];
+    if (field === 'customer') {
+      options = options.map(item => ({ id: item.id, site_name: item.site_name }));
+    } else if (field === 'amcType') {
+      options = options.map(item => ({
+        id: item.id,
+        type: item.type || item.name || `AMC-${item.id}`, // Adjust based on actual field
+      }));
+    } else if (field === 'lift') {
+      options = options.map(item => ({ id: item.id, lift_code: item.lift_code }));
+    }
+    setExistingOptions((prev) => ({
+      ...prev,
+      [field]: options,
+    }));
+  } catch (error) {
+    console.error(`Error fetching ${field}:`, {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    if (error.response?.status === 401) {
+      toast.error('Session expired. Please log in again.');
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    } else if (retryCount > 0) {
+      console.log(`Retrying fetchOptions for ${field}... (${retryCount} attempts left)`);
+      setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
+    } else {
+      toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}: ${error.message}`);
+    }
+  }
+};
+
+  // Fetch options on component mount
+  useEffect(() => {
+    const fields = ['customer', 'amcType', 'lift'];
+    fields.forEach(field => fetchOptions(field));
+  }, [apiBaseUrl]);
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -47,11 +110,11 @@ const QuotationForm = ({
     setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // Handle lift selection
+  // Handle lift selection (single value)
   const handleLiftChange = (e) => {
-    const selectedOptions = Array.from(e.target.selectedOptions).map(option => option.value);
-    setFormData(prev => ({ ...prev, lifts: selectedOptions }));
-    setErrors(prev => ({ ...prev, lifts: '' }));
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, lift: value }));
+    setErrors(prev => ({ ...prev, lift: '' }));
   };
 
   // Handle file input
@@ -67,7 +130,7 @@ const QuotationForm = ({
     if (!formData.referenceId) newErrors.referenceId = 'Reference ID is required';
     if (!formData.type) newErrors.type = 'Quotation type is required';
     if (!formData.date) newErrors.date = 'Date is required';
-    if (formData.lifts.length === 0) newErrors.lifts = 'At least one lift must be selected';
+    if (!formData.lift) newErrors.lift = 'A lift must be selected';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -80,12 +143,10 @@ const QuotationForm = ({
     }
 
     setIsSubmitting(true);
-    const axiosInstance = axios.create({
-      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
-    });
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
 
     try {
-      // Fetch IDs for customer, AMC type, and lifts
       const [customers, amcTypes, lifts] = await Promise.all([
         axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`),
         axiosInstance.get(`${apiBaseUrl}/amc/amc-types/`),
@@ -94,7 +155,7 @@ const QuotationForm = ({
 
       const quotationData = {
         reference_id: formData.referenceId,
-        customer: customers.data.find(c => c.name === formData.customer)?.id || formData.customer,
+        customer: customers.data.find(c => c.site_name === formData.customer)?.id || formData.customer,
         type: formData.type,
         amc_type: amcTypes.data.find(a => a.type === formData.amcType)?.id || null,
         sales_executive: formData.salesExecutive !== 'Select Executive' ? formData.salesExecutive : null,
@@ -102,16 +163,12 @@ const QuotationForm = ({
         date: formData.date,
         remark: formData.remark || null,
         other_remark: formData.otherRemark || null,
-        lifts: formData.lifts.map(lift =>
-          lifts.data.find(l => l.lift_number === lift)?.id
-        ).filter(id => id),
+        lift: lifts.data.find(l => l.lift_code === formData.lift)?.id || formData.lift,
       };
 
       const formDataToSend = new FormData();
       Object.entries(quotationData).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          value.forEach((item, index) => formDataToSend.append(`${key}[${index}]`, item));
-        } else if (value !== null && value !== undefined) {
+        if (value !== null && value !== undefined) {
           formDataToSend.append(key, value);
         }
       });
@@ -121,15 +178,16 @@ const QuotationForm = ({
       });
 
       if (isEdit) {
-        await axiosInstance.put(`${apiBaseUrl}/sales/quotations/${initialData.id}/`, formDataToSend, {
+        await axiosInstance.put(`${apiBaseUrl}/sales/edit-quotation/${initialData.id}/`, formDataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        await axiosInstance.post(`${apiBaseUrl}/sales/quotations/`, formDataToSend, {
+        await axiosInstance.post(`${apiBaseUrl}/sales/add-quotation/`, formDataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
 
+      toast.success(isEdit ? 'Quotation updated successfully!' : 'Quotation created successfully!');
       onSubmitSuccess();
       onClose();
     } catch (error) {
@@ -201,8 +259,10 @@ const QuotationForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
                   <option value="">Select Customer</option>
-                  {dropdownOptions.customerOptions?.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                  {existingOptions.customer.map((option) => (
+                    <option key={option.id} value={option.site_name}>
+                      {option.site_name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -212,19 +272,21 @@ const QuotationForm = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Quotation Type <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  className={`block w-full px-4 py-2.5 rounded-lg border ${
-                    errors.type ? 'border-red-500' : 'border-gray-300'
-                  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white`}
-                  required
-                >
-                  <option value="">Select Type</option>
-                  <option value="Standard">Standard</option>
-                  <option value="Custom">Custom</option>
-                </select>
+               <select
+  name="type"
+  value={formData.type}
+  onChange={handleInputChange}
+  className={`block w-full px-4 py-2.5 rounded-lg border ${
+    errors.type ? 'border-red-500' : 'border-gray-300'
+  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white`}
+  required
+>
+  <option value="">Select Type</option>
+  <option value="Parts/Peripheral Quotation">Parts/Peripheral Quotation</option>
+  <option value="Repair">Repair</option>
+  <option value="AMC Renewal Quotation">AMC Renewal Quotation</option>
+  <option value="AMC">AMC</option>
+</select>
                 {errors.type && (
                   <p className="text-red-500 text-xs mt-1">{errors.type}</p>
                 )}
@@ -242,8 +304,10 @@ const QuotationForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
                   <option value="">Select AMC Type</option>
-                  {dropdownOptions.amcTypeOptions?.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                  {existingOptions.amcType.map((option) => (
+                    <option key={option.id} value={option.type}>
+                      {option.type}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -259,9 +323,11 @@ const QuotationForm = ({
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
-                  {salesExecutiveOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
+                  <option value="">Select Executive</option>
+                  <option value="John Doe">John Doe</option>
+                  <option value="Jane Smith">Jane Smith</option>
+                  <option value="Alex Johnson">Alex Johnson</option>
+                  <option value="Emily Davis">Emily Davis</option>
                 </select>
               </div>
             </div>
@@ -306,26 +372,29 @@ const QuotationForm = ({
                 )}
               </div>
 
-              {/* Lifts */}
+              {/* Lift */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lifts <span className="text-red-500">*</span>
+                  Lift <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="lifts"
-                  multiple
-                  value={formData.lifts}
+                  name="lift"
+                  value={formData.lift}
                   onChange={handleLiftChange}
                   className={`block w-full px-4 py-2.5 rounded-lg border ${
-                    errors.lifts ? 'border-red-500' : 'border-gray-300'
-                  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 h-24`}
+                    errors.lift ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white`}
+                  required
                 >
-                  {dropdownOptions.liftOptions?.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                  <option value="">Select Lift</option>
+                  {existingOptions.lift.map((option) => (
+                    <option key={option.id} value={option.lift_code}>
+                      {option.lift_code}
+                    </option>
                   ))}
                 </select>
-                {errors.lifts && (
-                  <p className="text-red-500 text-xs mt-1">{errors.lifts}</p>
+                {errors.lift && (
+                  <p className="text-red-500 text-xs mt-1">{errors.lift}</p>
                 )}
               </div>
 

@@ -50,7 +50,7 @@ const Quotation = () => {
 
       // Fetch quotations, customers, AMC types, and lifts in parallel
       const [quotationsResponse, customersResponse, amcTypesResponse, liftsResponse] = await Promise.all([
-        axios.get(`${apiBaseUrl}/sales/quotations/`, {
+        axios.get(`${apiBaseUrl}/sales/quotation-list/`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         axios.get(`${apiBaseUrl}/sales/customer-list/`, {
@@ -69,7 +69,7 @@ const Quotation = () => {
         id: quotation.id,
         number: quotation.reference_id,
         date: quotation.date,
-        name: quotation.customer_name,
+        name: quotation.customer_site_name || quotation.customer?.site_name || 'N/A', // Multiple fallbacks
         amcDetails: quotation.amc_type || 'N/A',
         quotationType: quotation.type,
         amount: quotation.amount || '0',
@@ -81,7 +81,7 @@ const Quotation = () => {
 
       setQuotations(quotationsData);
       setSelectedQuotations([]);
-      setCustomerOptions(['ALL', ...customersResponse.data.map(customer => customer.name)]);
+      setCustomerOptions(['ALL', ...customersResponse.data.map(customer => customer.site_name)]);
       setAmcTypeOptions(amcTypesResponse.data.map(amc => amc.type));
       setLiftOptions(liftsResponse.data.map(lift => lift.lift_number));
     } catch (error) {
@@ -226,7 +226,7 @@ const Quotation = () => {
     if (window.confirm('Are you sure you want to delete this quotation?')) {
       try {
         const token = localStorage.getItem('access_token');
-        await axios.delete(`${apiBaseUrl}/sales/quotations/${id}/`, {
+        await axios.delete(`${apiBaseUrl}/sales/quotation/${id}/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setQuotations(prev => prev.filter(quotation => quotation.id !== id));

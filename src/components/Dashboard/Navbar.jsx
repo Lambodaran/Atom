@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [username, setUsername] = useState('Admin'); // Default to 'Admin'
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -12,6 +13,13 @@ const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
         setIsProfileOpen(false);
       }
     };
+
+    // Simulate fetching username from localStorage or context (e.g., after login)
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUsername(userData.username || 'Admin');
+    }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -161,9 +169,9 @@ const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
             className="flex items-center space-x-2 focus:outline-none profile-dropdown-trigger"
             aria-label="User profile"
           >
-            {!isMobile && <span className="text-gray-700">Admin</span>}
+            {!isMobile && <span className="text-gray-700">{username}</span>}
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-              A
+              {username.charAt(0).toUpperCase()}
             </div>
           </button>
 

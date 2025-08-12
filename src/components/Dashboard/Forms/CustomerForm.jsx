@@ -125,104 +125,59 @@ const CustomerForm = ({
   };
 
   // Handle form submission
-  const handleSubmit = async () => {
-    console.log('handleSubmit called, loading:', loading);
-    if (!formData.siteId || !formData.siteName || !formData.state) {
-      toast.error('Please fill in all required fields (Site ID, Site Name, State).');
-      return;
-    }
+const handleSubmit = async () => {
+  console.log('handleSubmit called, loading:', loading);
+  if (!formData.siteId || !formData.siteName || !formData.state) {
+    toast.error('Please fill in all required fields (Site ID, Site Name, State).');
+    return;
+  }
 
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      toast.error('Please log in to continue.');
-      window.location.href = '/login';
-      return;
-    }
+  const validSectors = dropdownOptions.sectorOptions.map(opt => opt.value);
+  if (formData.sector && !validSectors.includes(formData.sector)) {
+    toast.error('Please select a valid sector from the dropdown.');
+    return;
+  }
 
-    // Validate sector
-    const validSectors = dropdownOptions.sectorOptions.map(opt => opt.value);
-    if (formData.sector && !validSectors.includes(formData.sector)) {
-      toast.error('Please select a valid sector from the dropdown.');
-      return;
-    }
+  // No token check needed here—parent handles auth
 
-    try {
-      setLoading(true);
-      const customerData = {
-        site_id: formData.siteId,
-        job_no: formData.jobNo,
-        site_name: formData.siteName,
-        site_address: formData.siteAddress,
-        email: formData.email,
-        phone: formData.phone,
-        mobile: formData.mobile,
-        office_address: formData.officeAddress,
-        contact_person_name: formData.contactPersonName,
-        designation: formData.designation,
-        pin_code: formData.pinCode,
-        country: formData.country,
-        province_state: formData.state,
-        city: formData.city,
-        sector: formData.sector,
-        routes: formData.routes,
-        branch: formData.branch,
-        gst_number: formData.gstNumber,
-        pan_number: formData.panNumber,
-        handover_date: formData.handoverDate,
-        billing_name: formData.billingName,
-      };
+  try {
+    setLoading(true);
+    const customerData = {
+      site_id: formData.siteId,
+      job_no: formData.jobNo,
+      site_name: formData.siteName,
+      site_address: formData.siteAddress,
+      email: formData.email,
+      phone: formData.phone,
+      mobile: formData.mobile,
+      office_address: formData.officeAddress,
+      contact_person_name: formData.contactPersonName,
+      designation: formData.designation,
+      pin_code: formData.pinCode,
+      country: formData.country,
+      province_state: formData.state,
+      city: formData.city,
+      sector: formData.sector,
+      routes: formData.routes,
+      branch: formData.branch,
+      gst_number: formData.gstNumber,
+      pan_number: formData.panNumber,
+      handover_date: formData.handoverDate,
+      billing_name: formData.billingName,
+    };
 
-      console.log('Submitting customerData:', customerData);
-      console.log('Token:', token);
+    console.log('Prepared customerData:', customerData);
 
-      if (isEdit) {
-        await axios.put(
-          `${apiBaseUrl}/sales/edit-customer/${initialData.id}/`,
-          customerData,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        toast.success('Customer updated successfully.');
-      } else {
-        await axios.post(
-          `${apiBaseUrl}/sales/add-customer/`,
-          customerData,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        toast.success('Customer created successfully.');
-      }
-
-      onSubmitSuccess(customerData); // Pass customerData to parent
-      onClose();
-    } catch (error) {
-      console.error(`Error ${isEdit ? 'updating' : 'creating'} customer:`, error);
-      // Handle site_id uniqueness error specifically
-      if (error.response?.data?.site_id && Array.isArray(error.response.data.site_id)) {
-        const siteIdError = error.response.data.site_id[0];
-        if (siteIdError.toLowerCase().includes('site id already exists')) {
-          toast.error('A customer with this Site ID already exists. Please use a different Site ID.');
-        } else {
-          toast.error(siteIdError);
-        }
-      } else {
-        toast.error(
-          error.response?.data?.message || 
-          `Failed to ${isEdit ? 'update' : 'create'} customer. Please try again.`
-        );
-      }
-    } finally {
-      setTimeout(() => setLoading(false), 500);
-    }
-  };
+    // Call parent to handle API submission
+    await onSubmitSuccess(customerData);  // Make this awaitable if needed
+    onClose();
+  } catch (error) {
+    console.error(`Error preparing submission:`, error);
+    toast.error(`Failed to ${isEdit ? 'update' : 'create'} customer. Please try again.`);
+  } finally {
+    setTimeout(() => setLoading(false), 500);
+  }
+};
 
   // Render input field
   const renderInput = (name, label, type = 'text', required = false) => (
@@ -325,11 +280,11 @@ const CustomerForm = ({
       {/* Main Form Modal */}
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-6">
+        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
           <h2 className="text-2xl font-bold text-white">
             {isEdit ? 'Edit Customer' : 'Create New Customer'}
           </h2>
-          <p className="text-orange-100">
+          <p className="text-white">
             {isEdit ? 'Update customer details' : 'Fill in all required fields (*) to add a customer'}
           </p>
         </div>
@@ -391,7 +346,7 @@ const CustomerForm = ({
               console.log('Create Customer button clicked');
               handleSubmit();
             }}
-            className={`px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all shadow-md ${
+            className={`px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all shadow-md ${
               loading ? 'opacity-70 cursor-not-allowed' : ''
             }`}
             disabled={loading}
@@ -440,7 +395,7 @@ const CustomerForm = ({
                 </button>
                 <button
                   onClick={() => handleAddOption(field)}
-                  className={`px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all ${
+                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all ${
                     loading ? 'opacity-70 cursor-not-allowed' : ''
                   }`}
                   disabled={loading || addingOptions[field]}

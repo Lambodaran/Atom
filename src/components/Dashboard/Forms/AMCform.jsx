@@ -11,7 +11,6 @@ const AMCForm = ({
   apiBaseUrl,
   dropdownOptions = {},
 }) => {
-  // Form state
   const [newAMC, setNewAMC] = useState({
     customer: '',
     referenceId: '',
@@ -31,21 +30,19 @@ const AMCForm = ({
     no_of_lifts: '',
     gst_percentage: '',
     total: '',
+    total_amount_paid: '0',
     ...initialData,
   });
 
-  // State for existing options
   const [existingAmcTypes, setExistingAmcTypes] = useState([]);
   const [existingPaymentTerms, setExistingPaymentTerms] = useState([]);
   const [amcServiceItems, setAmcServiceItems] = useState([]);
 
-  // Modal state for adding/editing/deleting dropdown options
   const [modalState, setModalState] = useState({
     amcType: { isOpen: false, value: '', isEditing: false, editId: null },
     paymentTerms: { isOpen: false, value: '', isEditing: false, editId: null },
   });
 
-  // Centralized Axios instance with Bearer token
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -58,7 +55,6 @@ const AMCForm = ({
     });
   };
 
-  // Fetch existing AMC Types, Payment Terms, and Service Items
   const fetchOptions = async (field, retryCount = 2) => {
     const axiosInstance = createAxiosInstance();
     if (!axiosInstance) return;
@@ -85,7 +81,6 @@ const AMCForm = ({
         localStorage.removeItem('access_token');
         window.location.href = '/login';
       } else if (retryCount > 0 && error.code === 'ERR_NETWORK') {
-        console.log(`Retrying fetchOptions for ${field}... (${retryCount} attempts left)`);
         setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
       } else {
         toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
@@ -93,14 +88,25 @@ const AMCForm = ({
     }
   };
 
-  // Fetch options on component mount
   useEffect(() => {
     fetchOptions('amcType');
     fetchOptions('paymentTerms');
     fetchOptions('amcServiceItem');
   }, []);
 
-  // Handle form input changes
+  useEffect(() => {
+    const price = parseFloat(newAMC.price) || 0;
+    const lifts = parseInt(newAMC.no_of_lifts) || 0;
+    const gst = parseFloat(newAMC.gst_percentage) || 0;
+    
+    const calculatedTotal = price * lifts * (1 + gst / 100);
+    
+    setNewAMC(prev => ({ 
+      ...prev, 
+      total: calculatedTotal.toFixed(2)
+    }));
+  }, [newAMC.price, newAMC.no_of_lifts, newAMC.gst_percentage]);
+
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
     if (type === 'checkbox') {
@@ -117,7 +123,6 @@ const AMCForm = ({
     }
   };
 
-  // Open modal to add/edit dropdown option
   const openAddModal = (field, isEditing = false, editId = null, editValue = '') => {
     setModalState((prev) => ({
       ...prev,
@@ -125,7 +130,6 @@ const AMCForm = ({
     }));
   };
 
-  // Close modal
   const closeAddModal = (field) => {
     setModalState((prev) => ({
       ...prev,
@@ -133,7 +137,6 @@ const AMCForm = ({
     }));
   };
 
-  // Handle adding or editing dropdown option
   const handleAddOption = async (field) => {
     const value = modalState[field].value.trim();
     if (!value) {
@@ -187,7 +190,6 @@ const AMCForm = ({
     }
   };
 
-  // Handle deleting dropdown option
   const handleDeleteOption = async (field, id) => {
     if (!window.confirm(`Are you sure you want to delete this ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}?`)) {
       return;
@@ -219,133 +221,111 @@ const AMCForm = ({
     }
   };
 
-  // Handle form submission
- const handleSubmit = async () => {
-  const requiredFields = ['customer', 'referenceId', 'startDate', 'endDate'];
-  const missingFields = requiredFields.filter(field => !newAMC[field]);
+  const handleSubmit = async () => {
+    const requiredFields = ['customer', 'referenceId', 'startDate', 'endDate'];
+    const missingFields = requiredFields.filter(field => !newAMC[field]);
 
-  if (missingFields.length > 0) {
-    toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
-    return;
-  }
-
-  if (newAMC.isGenerateContractNow && !newAMC.amcServiceItem) {
-    toast.error('Please select an AMC Service Item when generating contract');
-    return;
-  }
-
-  const axiosInstance = createAxiosInstance();
-  if (!axiosInstance) return;
-
-  try {
-    // Fetch customer list to get the customer ID
-    const customersResponse = await axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`);
-    const selectedCustomer = customersResponse.data.find(c => c.site_name === newAMC.customer);
-    
-    if (!selectedCustomer) {
-      toast.error('Selected customer not found');
+    if (missingFields.length > 0) {
+      toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
       return;
     }
 
-    const formData = new FormData();
-    formData.append('customer', selectedCustomer.id); // Use the customer ID
-    
-    // Rest of the form data remains the same
-    formData.append('reference_id', newAMC.referenceId);
-    formData.append('amc_name', newAMC.amc_name || '');
-    formData.append('invoice_frequency', newAMC.invoiceFrequency || 'annually');
-    
-    if (newAMC.amcType) {
-      const amcTypesResponse = await axiosInstance.get(`${apiBaseUrl}/amc/amc-types/`);
-      const selectedAmcType = amcTypesResponse.data.find(t => t.name === newAMC.amcType);
-      if (selectedAmcType) {
-        formData.append('amc_type', selectedAmcType.id);
-      }
-    }
-    
-    if (newAMC.paymentTerms) {
-      const paymentTermsResponse = await axiosInstance.get(`${apiBaseUrl}/amc/payment-terms/`);
-      const selectedPaymentTerms = paymentTermsResponse.data.find(p => p.name === newAMC.paymentTerms);
-      if (selectedPaymentTerms) {
-        formData.append('payment_terms', selectedPaymentTerms.id);
-      }
-    }
-    
-    formData.append('start_date', newAMC.startDate);
-    formData.append('end_date', newAMC.endDate);
-    formData.append('equipment_no', newAMC.equipmentNo || '');
-    formData.append('notes', newAMC.notes || '');
-    formData.append('is_generate_contract', newAMC.isGenerateContractNow);
-    formData.append('no_of_services', newAMC.noOfServices || 12);
-    
-    if (newAMC.amcServiceItem) {
-      formData.append('amc_service_item', newAMC.amcServiceItem);
-    }
-    
-    if (newAMC.files) {
-      formData.append('uploads_files', newAMC.files);
-    }
-    
-    if (newAMC.isGenerateContractNow) {
-      formData.append('price', newAMC.price || 0);
-      formData.append('no_of_lifts', newAMC.no_of_lifts || 0);
-      formData.append('gst_percentage', newAMC.gst_percentage || 0);
-      formData.append('total', newAMC.total || 0);
+    if (newAMC.isGenerateContractNow && !newAMC.amcServiceItem) {
+      toast.error('Please select an AMC Service Item when generating contract');
+      return;
     }
 
-    const response = isEdit 
-      ? await axiosInstance.put(
-          `${apiBaseUrl}/amc/amc-update/${initialData.id}/`,
-          formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
-        )
-      : await axiosInstance.post(
-          `${apiBaseUrl}/amc/amc-add/`,
-          formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
-        );
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
 
-    toast.success(`AMC ${isEdit ? 'updated' : 'created'} successfully.`);
-    onSubmitSuccess();
-    onClose();
-  } catch (error) {
-    console.error(`Error ${isEdit ? 'editing' : 'creating'} AMC:`, error);
-    if (error.response?.status === 401) {
-      toast.error('Session expired. Please log in again.');
-      localStorage.removeItem('access_token');
-      window.location.href = '/login';
-    } else {
-      const errorMsg = error.response?.data?.error || 
-                     error.response?.data?.detail || 
-                     `Failed to ${isEdit ? 'update' : 'create'} AMC.`;
-      toast.error(errorMsg);
+    try {
+      const customersResponse = await axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`);
+      const selectedCustomer = customersResponse.data.find(c => c.site_name === newAMC.customer);
+      
+      if (!selectedCustomer) {
+        toast.error('Selected customer not found');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('customer', selectedCustomer.id);
+      formData.append('reference_id', newAMC.referenceId);
+      formData.append('amc_name', newAMC.amc_name || '');
+      formData.append('invoice_frequency', newAMC.invoiceFrequency || 'annually');
+      
+      if (newAMC.amcType) {
+        const amcTypesResponse = await axiosInstance.get(`${apiBaseUrl}/amc/amc-types/`);
+        const selectedAmcType = amcTypesResponse.data.find(t => t.name === newAMC.amcType);
+        if (selectedAmcType) {
+          formData.append('amc_type', selectedAmcType.id);
+        } else {
+          throw new Error('Selected AMC Type not found');
+        }
+      }
+      
+      if (newAMC.paymentTerms) {
+        const paymentTermsResponse = await axiosInstance.get(`${apiBaseUrl}/amc/payment-terms/`);
+        const selectedPaymentTerms = paymentTermsResponse.data.find(p => p.name === newAMC.paymentTerms);
+        if (selectedPaymentTerms) {
+          formData.append('payment_terms', selectedPaymentTerms.id);
+        } else {
+          throw new Error('Selected Payment Terms not found');
+        }
+      }
+      
+      formData.append('start_date', newAMC.startDate);
+      formData.append('end_date', newAMC.endDate);
+      formData.append('equipment_no', newAMC.equipmentNo || '');
+      formData.append('notes', newAMC.notes || '');
+      formData.append('is_generate_contract', newAMC.isGenerateContractNow);
+      formData.append('no_of_services', newAMC.noOfServices || '12');
+      if (newAMC.files) {
+        formData.append('files', newAMC.files);
+      }
+      if (newAMC.amcServiceItem) {
+        formData.append('amc_service_item', newAMC.amcServiceItem);
+      }
+      formData.append('price', newAMC.price || '0');
+      formData.append('no_of_lifts', newAMC.no_of_lifts || '0');
+      formData.append('gst_percentage', newAMC.gst_percentage || '0');
+      formData.append('total', newAMC.total || '0');
+      formData.append('total_amount_paid', newAMC.total_amount_paid || '0');
+
+      const endpoint = isEdit ? `/amc/amc-update/${initialData.id}/` : '/amc/amc-add/';
+      const method = isEdit ? axiosInstance.put : axiosInstance.post;
+      const response = await method(`${apiBaseUrl}${endpoint}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      onSubmitSuccess(response.data.message);
+      onClose();
+    } catch (error) {
+      console.error('Error submitting AMC:', error.response ? error.response.data : error.message);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else if (error.response?.status === 500) {
+        toast.error('Server error occurred. Please check the console for details or contact support.');
+      } else {
+        toast.error(error.response?.data?.error || (isEdit ? 'Failed to update AMC' : 'Failed to create AMC'));
+      }
     }
-  }
-};
+  };
+
   return (
-    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      {/* Main Form Modal */}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
-        {/* Modal Header */}
-        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
-          <h2 className="text-2xl font-bold text-white">
+        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] px-6 py-4">
+          <h2 className="text-xl font-bold text-white">
             {isEdit ? 'Edit AMC' : 'Create New AMC'}
           </h2>
-          <p className="text-white">
-            Fill in all required fields (*) to {isEdit ? 'update' : 'add'} an AMC
-          </p>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - General Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Left Column */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                General Information
-              </h3>
-
-              {/* Customer */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Customer
@@ -357,18 +337,16 @@ const AMCForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
                   <option value="">Select Customer</option>
-                  {dropdownOptions.customerOptions?.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                  {dropdownOptions.customerOptions?.map((customer, index) => (
+                    <option key={index} value={customer}>
+                      {customer}
                     </option>
                   ))}
                 </select>
               </div>
-
-              {/* Reference ID */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reference ID <span className="text-red-500">*</span>
+                  Reference ID
                 </label>
                 <input
                   type="text"
@@ -376,11 +354,9 @@ const AMCForm = ({
                   value={newAMC.referenceId}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                  required
+                  readOnly={isEdit}
                 />
               </div>
-
-              {/* AMC */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   AMC Name
@@ -393,8 +369,6 @@ const AMCForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 />
               </div>
-
-              {/* Invoice Frequency */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Invoice Frequency
@@ -406,66 +380,60 @@ const AMCForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
                   <option value="">Select Frequency</option>
-                  {dropdownOptions.invoiceFrequencyOptions?.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                  {dropdownOptions.invoiceFrequencyOptions?.map((freq, index) => (
+                    <option key={index} value={freq}>
+                      {freq.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </option>
                   ))}
                 </select>
               </div>
-
-              {/* AMC Type */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   AMC Type
                 </label>
-                <div className="flex">
+                <div className="flex space-x-2">
                   <select
                     name="amcType"
                     value={newAMC.amcType}
                     onChange={handleInputChange}
-                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
-                    <option value="">Select Type</option>
-                    {existingAmcTypes.map((option) => (
-                      <option key={option.id} value={option.name}>
-                        {option.name}
+                    <option value="">Select AMC Type</option>
+                    {existingAmcTypes.map((type) => (
+                      <option key={type.id} value={type.name}>
+                        {type.name}
                       </option>
                     ))}
                   </select>
                   <button
-                    type="button"
                     onClick={() => openAddModal('amcType')}
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
+                    className="px-4 py-2 bg-[#2D3A6B] text-white rounded-lg hover:bg-[#213066] transition-all duration-200"
                   >
                     +
                   </button>
                 </div>
               </div>
-
-              {/* Payment Terms */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Payment Terms
                 </label>
-                <div className="flex">
+                <div className="flex space-x-2">
                   <select
                     name="paymentTerms"
                     value={newAMC.paymentTerms}
                     onChange={handleInputChange}
-                    className="flex-1 px-4 py-2.5 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
-                    <option value="">Select Terms</option>
-                    {existingPaymentTerms.map((option) => (
-                      <option key={option.id} value={option.name}>
-                        {option.name}
+                    <option value="">Select Payment Terms</option>
+                    {existingPaymentTerms.map((terms) => (
+                      <option key={terms.id} value={terms.name}>
+                        {terms.name}
                       </option>
                     ))}
                   </select>
                   <button
-                    type="button"
                     onClick={() => openAddModal('paymentTerms')}
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 transition-all text-white"
+                    className="px-4 py-2 bg-[#2D3A6B] text-white rounded-lg hover:bg-[#213066] transition-all duration-200"
                   >
                     +
                   </button>
@@ -473,16 +441,11 @@ const AMCForm = ({
               </div>
             </div>
 
-            {/* Right Column - Contract Details */}
+            {/* Right Column */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                Contract Details
-              </h3>
-
-              {/* Start Date */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date <span className="text-red-500">*</span>
+                  Start Date
                 </label>
                 <input
                   type="date"
@@ -490,14 +453,11 @@ const AMCForm = ({
                   value={newAMC.startDate}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                  required
                 />
               </div>
-
-              {/* End Date */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date <span className="text-red-500">*</span>
+                  End Date
                 </label>
                 <input
                   type="date"
@@ -505,24 +465,8 @@ const AMCForm = ({
                   value={newAMC.endDate}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                  required
                 />
               </div>
-
-              {/* Upload Files */}
-              {/* <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Files (Max 1 MB)
-                </label>
-                <input
-                  type="file"
-                  name="files"
-                  onChange={handleInputChange}
-                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                />
-              </div> */}
-
-              {/* Equipment No */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Equipment No
@@ -535,8 +479,6 @@ const AMCForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 />
               </div>
-
-              {/* Notes */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes
@@ -546,28 +488,12 @@ const AMCForm = ({
                   value={newAMC.notes}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                  rows="4"
-                />
+                  rows="3"
+                ></textarea>
               </div>
-
-              {/* Is Generate Contract Now */}
-              <div className="form-group">
-                <label className="flex items-center text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    name="isGenerateContractNow"
-                    checked={newAMC.isGenerateContractNow}
-                    onChange={handleInputChange}
-                    className="mr-2 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
-                  />
-                  Generate Contract Now
-                </label>
-              </div>
-
-              {/* No of Services */}
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  No of Services (Routine Services)
+                  No of Services
                 </label>
                 <input
                   type="number"
@@ -577,8 +503,21 @@ const AMCForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 />
               </div>
+              <div className="form-group">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="isGenerateContractNow"
+                    checked={newAMC.isGenerateContractNow}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Generate Contract Now
+                  </span>
+                </label>
+              </div>
 
-              {/* Conditional Fields */}
               {newAMC.isGenerateContractNow && (
                 <div className="space-y-4">
                   <div className="form-group">
@@ -606,7 +545,7 @@ const AMCForm = ({
                     <input
                       type="number"
                       name="price"
-                      value={newAMC.price || ''}
+                      value={newAMC.price}
                       onChange={handleInputChange}
                       className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                     />
@@ -618,7 +557,7 @@ const AMCForm = ({
                     <input
                       type="number"
                       name="no_of_lifts"
-                      value={newAMC.no_of_lifts || ''}
+                      value={newAMC.no_of_lifts}
                       onChange={handleInputChange}
                       className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                     />
@@ -630,7 +569,7 @@ const AMCForm = ({
                     <input
                       type="number"
                       name="gst_percentage"
-                      value={newAMC.gst_percentage || ''}
+                      value={newAMC.gst_percentage}
                       onChange={handleInputChange}
                       className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                     />
@@ -642,10 +581,23 @@ const AMCForm = ({
                     <input
                       type="number"
                       name="total"
-                      value={newAMC.total || ''}
+                      value={newAMC.total}
+                      readOnly
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Total Amount Paid
+                    </label>
+                    <input
+                      type="number"
+                      name="total_amount_paid"
+                      value={newAMC.total_amount_paid}
                       onChange={handleInputChange}
                       className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                      readOnly
+                      min="0"
+                      step="0.01"
                     />
                   </div>
                 </div>
@@ -654,7 +606,6 @@ const AMCForm = ({
           </div>
         </div>
 
-        {/* Modal Footer */}
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
           <button
             onClick={onClose}
@@ -671,10 +622,9 @@ const AMCForm = ({
         </div>
       </div>
 
-      {/* Secondary Modals for Adding/Editing/Deleting AMC Type and Payment Terms */}
       {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) => (
         isOpen && (
-          <div key={field} className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div key={field} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
                 {isEditing ? `Edit ${field.replace(/([A-Z])/g, ' $1').trim()}` : `Add New ${field.replace(/([A-Z])/g, ' $1').trim()}`}

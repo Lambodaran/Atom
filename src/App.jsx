@@ -1,4 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+
+// dashboard components
 import DashboardLayout from './components/Dashboard/DashboardLayout';
 import DashboardPage from './components/Dashboard/Dashboard';
 import LiftsPage from './components/Dashboard/Lifts';
@@ -27,6 +30,10 @@ import ThisMonthCompleted from './components/Dashboard/ThisMonthCompleted';
 import LastMonthCompleted from './components/Dashboard/LastMonthCompleted';
 import PendingAssignServices from './components/Dashboard/PendingAssignServices';
 import NewItemForm from './components/Dashboard/Forms/NewItemForm';
+import Complaints from './components/Dashboard/Complaints';
+
+
+// Home component
 import Home from './components/Homepage/Home'; // Assuming Home component exists
 
 // Authentication
@@ -69,6 +76,7 @@ function App() {
           <Route path="/dashboard/this-month-completed" element={<ThisMonthCompleted />} />
           <Route path="/dashboard/last-month-completed" element={<LastMonthCompleted />} />
           <Route path="/dashboard/pending-assign" element={<PendingAssignServices />} />
+          <Route path="/dashboard/complaints" element={<Complaints />} />
         </Route>
 
         {/* Authentication routes */}

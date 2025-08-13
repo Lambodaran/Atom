@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { Edit, Trash2 } from 'lucide-react';
 
 const CustomerForm = ({
   isEdit = false,
@@ -10,7 +11,6 @@ const CustomerForm = ({
   apiBaseUrl,
   dropdownOptions = {},
 }) => {
-  // Form state
   const [formData, setFormData] = useState({
     siteId: '',
     jobNo: '',
@@ -27,71 +27,192 @@ const CustomerForm = ({
     country: '',
     state: '',
     city: '',
-    sector: '', // Default to empty to ensure selection from dropdown
+    sector: '',
     routes: '',
     branch: '',
     gstNumber: '',
     panNumber: '',
     handoverDate: '',
     billingName: '',
-    ...initialData,
   });
 
-  const [loading, setLoading] = useState(false);
+  const [existingOptions, setExistingOptions] = useState({
+    state: [],
+    routes: [],
+    branch: [],
+    sector: [
+      { id: 1, value: 'government', label: 'Government' },
+      { id: 2, value: 'private', label: 'Private' },
+    ],
+  });
+
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [modalState, setModalState] = useState({
-    state: { isOpen: false, value: '' },
-    routes: { isOpen: false, value: '' },
-    branch: { isOpen: false, value: '' },
+    state: { isOpen: false, value: '', isEditing: false, editId: null },
+    routes: { isOpen: false, value: '', isEditing: false, editId: null },
+    branch: { isOpen: false, value: '', isEditing: false, editId: null },
   });
 
-  // Track which dropdown options are being added to prevent duplicate API calls
   const [addingOptions, setAddingOptions] = useState({
     state: false,
     routes: false,
     branch: false,
   });
 
-  // Debug dropdownOptions prop
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastSubmitTime, setLastSubmitTime] = useState(0);
+
+  const createAxiosInstance = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.error('No access token found in localStorage');
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return null;
+    }
+    return axios.create({
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  };
+
+  const fetchOptions = async (field, retryCount = 2) => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const endpoints = {
+        state: 'province-states',
+        routes: 'routes',
+        branch: 'branches',
+      };
+      const endpoint = endpoints[field];
+      const response = await axiosInstance.get(`${apiBaseUrl}/sales/${endpoint}/`);
+      console.log(`Fetched ${field} options:`, response.data);
+      setExistingOptions((prev) => {
+        const updatedOptions = { ...prev, [field]: response.data };
+        console.log(`Updated existingOptions.${field}:`, updatedOptions[field]);
+        return updatedOptions;
+      });
+      const capitalField = field.charAt(0).toUpperCase() + field.slice(1);
+      if (dropdownOptions[`set${capitalField}Options`]) {
+        dropdownOptions[`set${capitalField}Options`](response.data.map((item) => item.value));
+        console.log(`Updated dropdownOptions.${field}Options:`, response.data.map((item) => item.value));
+      } else {
+        console.warn(`dropdownOptions.set${capitalField}Options is not defined`);
+      }
+    } catch (error) {
+      console.error(`Error fetching ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else if (retryCount > 0 && error.code === 'ERR_NETWORK') {
+        console.log(`Retrying fetchOptions for ${field}... (${retryCount} attempts left)`);
+        setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
+      } else {
+        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()} options.`);
+        setExistingOptions((prev) => ({ ...prev, [field]: [] }));
+      }
+    }
+  };
+
+  const transformInitialData = (data, options) => {
+    const transformed = { ...data };
+
+    const fieldIdMap = {
+      state: 'province_state',
+      routes: 'routes',
+      branch: 'branch',
+      sector: 'sector',
+    };
+
+    ['state', 'routes', 'branch', 'sector'].forEach((field) => {
+      const idKey = fieldIdMap[field];
+      if (data[idKey] && options[field]) {
+        const option = options[field].find((opt) => opt.id === data[idKey] || opt.value === data[idKey]);
+        transformed[field] = option ? (option.label || option.value) : '';
+      } else {
+        transformed[field] = data[field] || '';
+      }
+    });
+
+    console.log('Transformed initialData:', transformed);
+    return transformed;
+  };
+
   useEffect(() => {
-    console.log('CustomerForm received dropdownOptions:', dropdownOptions);
+    const fields = ['state', 'routes', 'branch'];
+    Promise.all(fields.map((field) => fetchOptions(field)))
+      .then(() => {
+        if (isEdit && Object.keys(initialData).length > 0) {
+          const transformedData = transformInitialData(initialData, existingOptions);
+          setFormData((prev) => ({ ...prev, ...transformedData }));
+        }
+        setOptionsLoaded(true);
+        console.log('Options loaded, existingOptions:', existingOptions);
+      })
+      .catch((error) => {
+        console.error('Error fetching all options:', error);
+        setOptionsLoaded(true);
+        setExistingOptions((prev) => ({
+          ...prev,
+          state: [],
+          routes: [],
+          branch: [],
+        }));
+      });
+  }, [initialData]);
+
+  useEffect(() => {
+    if (optionsLoaded) {
+      ['state', 'routes', 'branch'].forEach((field) => {
+        if (formData[field] && existingOptions[field].length > 0) {
+          const isValid = existingOptions[field].some((opt) => opt.value === formData[field]);
+          if (!isValid) {
+            console.warn(`Invalid ${field} selected: ${formData[field]}. Resetting to empty.`);
+            setFormData((prev) => ({ ...prev, [field]: '' }));
+            toast.warn(`Selected ${field} is invalid. Please choose a valid ${field} from the dropdown.`);
+          }
+        }
+      });
+    }
+  }, [formData.state, formData.routes, formData.branch, existingOptions, optionsLoaded]);
+
+  useEffect(() => {
+    console.log('dropdownOptions:', dropdownOptions);
   }, [dropdownOptions]);
 
-  // Debug formData changes
   useEffect(() => {
     console.log('Current formData:', formData);
   }, [formData]);
 
-  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
     }));
 
     if (name === 'sameAsSiteAddress' && checked) {
-      setFormData(prev => ({ ...prev, officeAddress: prev.siteAddress }));
+      setFormData((prev) => ({ ...prev, officeAddress: prev.siteAddress }));
     }
   };
 
-  // Open modal to add new dropdown option
-  const openAddModal = (field) => {
-    setModalState(prev => ({ 
-      ...prev, 
-      [field]: { ...prev[field], isOpen: true } 
+  const openAddModal = (field, isEditing = false, editId = null, editValue = '') => {
+    setModalState((prev) => ({
+      ...prev,
+      [field]: { isOpen: true, value: editValue, isEditing, editId },
     }));
   };
 
-  // Close modal to add new dropdown option
   const closeAddModal = (field) => {
-    setModalState(prev => ({ 
-      ...prev, 
-      [field]: { isOpen: false, value: '' } 
+    setModalState((prev) => ({
+      ...prev,
+      [field]: { isOpen: false, value: '', isEditing: false, editId: null },
     }));
-    setAddingOptions(prev => ({ ...prev, [field]: false }));
+    setAddingOptions((prev) => ({ ...prev, [field]: false }));
   };
 
-  // Handle adding new dropdown option
   const handleAddOption = async (field) => {
     if (addingOptions[field]) return;
 
@@ -101,85 +222,310 @@ const CustomerForm = ({
       return;
     }
 
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
     try {
-      setAddingOptions(prev => ({ ...prev, [field]: true }));
-      setLoading(true);
-      
-      // Use the callback from parent instead of direct API call
-      const newOption = await dropdownOptions.onAddOption(field, value);
-      
-      // Update form field with new value
-      setFormData(prev => ({ ...prev, [field]: newOption.value || newOption }));
+      setAddingOptions((prev) => ({ ...prev, [field]: true }));
+      const apiEndpoints = {
+        state: 'edit-province-state',
+        routes: 'edit-route',
+        branch: 'edit-branch',
+      };
+      const addEndpoints = {
+        state: 'add-province-state',
+        routes: 'add-route',
+        branch: 'add-branch',
+      };
+      const isEditing = modalState[field].isEditing;
+      const editId = modalState[field].editId;
+      const capitalField = field.charAt(0).toUpperCase() + field.slice(1);
+      const setter = dropdownOptions[`set${capitalField}Options`];
+
+      if (isEditing) {
+        const oldValue = existingOptions[field].find((item) => item.id === editId)?.value;
+        await axiosInstance.put(
+          `${apiBaseUrl}/sales/${apiEndpoints[field]}/${editId}/`,
+          { value }
+        );
+        const updatedOptions = existingOptions[field].map((item) =>
+          item.id === editId ? { ...item, value } : item
+        );
+        setExistingOptions((prev) => {
+          const newOptions = { ...prev, [field]: updatedOptions };
+          console.log(`Updated existingOptions.${field} after edit:`, newOptions[field]);
+          return newOptions;
+        });
+        if (setter) {
+          setter(updatedOptions.map((o) => o.value));
+          console.log(`Updated dropdownOptions.${field}Options after edit:`, updatedOptions.map((o) => o.value));
+        }
+        if (formData[field] === oldValue) {
+          setFormData((prev) => ({ ...prev, [field]: value }));
+        }
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} updated successfully.`);
+      } else {
+        const response = await axiosInstance.post(
+          `${apiBaseUrl}/sales/${addEndpoints[field]}/`,
+          { value }
+        );
+        const newOption = response.data;
+        const updatedOptions = [...existingOptions[field], newOption];
+        setExistingOptions((prev) => {
+          const newOptions = { ...prev, [field]: updatedOptions };
+          console.log(`Updated existingOptions.${field} after add:`, newOptions[field]);
+          return newOptions;
+        });
+        if (setter) {
+          setter(updatedOptions.map((o) => o.value));
+          console.log(`Updated dropdownOptions.${field}Options after add:`, updatedOptions.map((o) => o.value));
+        }
+        setFormData((prev) => ({ ...prev, [field]: newOption.value }));
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} added successfully.`);
+      }
+
+      await fetchOptions(field);
       closeAddModal(field);
-      toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} added successfully.`);
     } catch (error) {
-      console.error(`Error adding ${field}:`, error);
-      toast.error(
-        error.response?.data?.message || 
-        `Failed to add ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`
-      );
+      console.error(`Error ${isEditing ? 'editing' : 'adding'} ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        const errorMsg =
+          error.response?.data?.value?.[0] ||
+          error.response?.data?.error ||
+          `Failed to ${isEditing ? 'update' : 'add'} ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`;
+        toast.error(errorMsg);
+      }
     } finally {
-      setLoading(false);
-      setAddingOptions(prev => ({ ...prev, [field]: false }));
+      setAddingOptions((prev) => ({ ...prev, [field]: false }));
     }
   };
 
-  // Handle form submission
-const handleSubmit = async () => {
-  console.log('handleSubmit called, loading:', loading);
-  if (!formData.siteId || !formData.siteName || !formData.state) {
-    toast.error('Please fill in all required fields (Site ID, Site Name, State).');
-    return;
-  }
+  const handleDeleteOption = async (field, id) => {
+    if (!window.confirm(`Are you sure you want to delete this ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}?`)) {
+      return;
+    }
 
-  const validSectors = dropdownOptions.sectorOptions.map(opt => opt.value);
-  if (formData.sector && !validSectors.includes(formData.sector)) {
-    toast.error('Please select a valid sector from the dropdown.');
-    return;
-  }
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
 
-  // No token check needed here—parent handles auth
+    try {
+      const deleteEndpoints = {
+        state: 'delete-province-state',
+        routes: 'delete-route',
+        branch: 'delete-branch',
+      };
+      await axiosInstance.delete(`${apiBaseUrl}/sales/${deleteEndpoints[field]}/${id}/`);
+      const deletedValue = existingOptions[field].find((item) => item.id === id)?.value;
+      const updatedOptions = existingOptions[field].filter((item) => item.id !== id);
+      setExistingOptions((prev) => {
+        const newOptions = { ...prev, [field]: updatedOptions };
+        console.log(`Updated existingOptions.${field} after delete:`, newOptions[field]);
+        return newOptions;
+      });
+      const capitalField = field.charAt(0).toUpperCase() + field.slice(1);
+      const setter = dropdownOptions[`set${capitalField}Options`];
+      if (setter) {
+        setter(updatedOptions.map((o) => o.value));
+        console.log(`Updated dropdownOptions.${field}Options after delete:`, updatedOptions.map((o) => o.value));
+      }
+      if (formData[field] === deletedValue) {
+        setFormData((prev) => ({ ...prev, [field]: '' }));
+      }
+      toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
+      await fetchOptions(field);
+    } catch (error) {
+      console.error(`Error deleting ${field}:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(
+          error.response?.data?.error ||
+          `Failed to delete ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`
+        );
+      }
+    }
+  };
 
-  try {
-    setLoading(true);
-    const customerData = {
-      site_id: formData.siteId,
-      job_no: formData.jobNo,
-      site_name: formData.siteName,
-      site_address: formData.siteAddress,
-      email: formData.email,
-      phone: formData.phone,
-      mobile: formData.mobile,
-      office_address: formData.officeAddress,
-      contact_person_name: formData.contactPersonName,
-      designation: formData.designation,
-      pin_code: formData.pinCode,
-      country: formData.country,
-      province_state: formData.state,
-      city: formData.city,
-      sector: formData.sector,
-      routes: formData.routes,
-      branch: formData.branch,
-      gst_number: formData.gstNumber,
-      pan_number: formData.panNumber,
-      handover_date: formData.handoverDate,
-      billing_name: formData.billingName,
-    };
+  const handleSubmit = async () => {
+    const now = Date.now();
+    if (isSubmitting || (now - lastSubmitTime < 500)) {
+      console.log('Submission throttled or already in progress, ignoring.');
+      return;
+    }
 
-    console.log('Prepared customerData:', customerData);
+    console.log('handleSubmit called, isEdit:', isEdit, 'formData:', formData);
 
-    // Call parent to handle API submission
-    await onSubmitSuccess(customerData);  // Make this awaitable if needed
-    onClose();
-  } catch (error) {
-    console.error(`Error preparing submission:`, error);
-    toast.error(`Failed to ${isEdit ? 'update' : 'create'} customer. Please try again.`);
-  } finally {
-    setTimeout(() => setLoading(false), 500);
-  }
-};
+    if (!formData.siteId) {
+      toast.error('Site ID is required.');
+      console.log('Validation failed: Site ID is empty');
+      return;
+    }
+    if (!formData.siteName) {
+      toast.error('Site Name is required.');
+      console.log('Validation failed: Site Name is empty');
+      return;
+    }
+    if (!formData.state) {
+      toast.error('State is required. Please select a state or add a new one.');
+      console.log('Validation failed: State is empty, Available states:', existingOptions.state.map((s) => s.value));
+      return;
+    }
+    if (!formData.routes) {
+      toast.error('Route is required. Please select a route or add a new one.');
+      console.log('Validation failed: Route is empty, Available routes:', existingOptions.routes.map((r) => r.value));
+      return;
+    }
+    if (!formData.branch) {
+      toast.error('Branch is required. Please select a branch or add a new one.');
+      console.log('Validation failed: Branch is empty, Available branches:', existingOptions.branch.map((b) => b.value));
+      return;
+    }
 
-  // Render input field
+    const validSectors = ['government', 'private'];
+    if (formData.sector && !validSectors.includes(formData.sector)) {
+      toast.error('Please select a valid sector from the dropdown.');
+      console.log('Validation failed: Invalid sector value:', formData.sector);
+      return;
+    }
+
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) {
+      console.log('Validation failed: No Axios instance created');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setLastSubmitTime(now);
+
+      console.log('Fetching options for province-states, routes, branches...');
+      const [
+        provinceStatesResponse,
+        routesResponse,
+        branchesResponse,
+      ] = await Promise.all([
+        axiosInstance.get(`${apiBaseUrl}/sales/province-states/`).catch((error) => {
+          console.error('Error fetching province-states:', error);
+          throw new Error('Failed to fetch states');
+        }),
+        axiosInstance.get(`${apiBaseUrl}/sales/routes/`).catch((error) => {
+          console.error('Error fetching routes:', error);
+          throw new Error('Failed to fetch routes');
+        }),
+        axiosInstance.get(`${apiBaseUrl}/sales/branches/`).catch((error) => {
+          console.error('Error fetching branches:', error);
+          throw new Error('Failed to fetch branches');
+        }),
+      ]);
+
+      const provinceStates = provinceStatesResponse.data;
+      const routes = routesResponse.data;
+      const branches = branchesResponse.data;
+
+      console.log('API provinceStates:', provinceStates);
+      console.log('API routes:', routes);
+      console.log('API branches:', branches);
+
+      const selectedState = provinceStates.find((s) => s.value === formData.state);
+      if (!selectedState) {
+        console.log('Validation failed: Invalid state:', formData.state, 'Available states:', provinceStates.map((s) => s.value));
+        toast.error('Selected state is invalid. Please select a valid state from the dropdown.');
+        setFormData((prev) => ({ ...prev, state: '' }));
+        return;
+      }
+      const selectedRoute = routes.find((r) => r.value === formData.routes);
+      if (!selectedRoute) {
+        console.log('Validation failed: Invalid route:', formData.routes, 'Available routes:', routes.map((r) => r.value));
+        toast.error('Selected route is invalid. Please select a valid route from the dropdown.');
+        setFormData((prev) => ({ ...prev, routes: '' }));
+        return;
+      }
+      const selectedBranch = branches.find((b) => b.value === formData.branch);
+      if (!selectedBranch) {
+        console.log('Validation failed: Invalid branch:', formData.branch, 'Available branches:', branches.map((b) => b.value));
+        toast.error('Selected branch is invalid. Please select a valid branch from the dropdown.');
+        setFormData((prev) => ({ ...prev, branch: '' }));
+        return;
+      }
+
+      const customerData = {
+        site_id: formData.siteId,
+        job_no: formData.jobNo,
+        site_name: formData.siteName,
+        site_address: formData.siteAddress,
+        email: formData.email,
+        phone: formData.phone,
+        mobile: formData.mobile,
+        office_address: formData.officeAddress,
+        contact_person_name: formData.contactPersonName,
+        designation: formData.designation,
+        pin_code: formData.pinCode,
+        country: formData.country,
+        province_state: selectedState.id,
+        city: formData.city,
+        sector: formData.sector || null,
+        routes: selectedRoute.id,
+        branch: selectedBranch.id,
+        gst_number: formData.gstNumber,
+        pan_number: formData.panNumber,
+        handover_date: formData.handoverDate,
+        billing_name: formData.billingName,
+      };
+
+      console.log('Prepared customerData:', customerData);
+
+      console.log('Attempting to submit customer data...');
+      let response;
+      if (isEdit) {
+        console.log('Calling PUT /sales/edit-customer/', initialData.id);
+        response = await axiosInstance.put(
+          `${apiBaseUrl}/sales/edit-customer/${initialData.id}/`,
+          customerData
+        );
+        toast.success('Customer updated successfully.');
+      } else {
+        console.log('Calling POST /sales/add-customer/');
+        response = await axiosInstance.post(
+          `${apiBaseUrl}/sales/add-customer/`,
+          customerData
+        );
+        toast.success('Customer created successfully.');
+      }
+
+      // Update parent component with new data
+      const updatedCustomer = { ...customerData, id: response.data.id || initialData.id };
+      await onSubmitSuccess(updatedCustomer);
+
+      // Refresh dropdown options
+      await Promise.all(['state', 'routes', 'branch'].map((field) => fetchOptions(field)));
+      onClose();
+    } catch (error) {
+      console.error(`Error ${isEdit ? 'editing' : 'creating'} customer:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        const errorMsg =
+          error.response?.data?.error ||
+          Object.entries(error.response?.data || {})
+            .map(([field, errors]) => `${field}: ${errors.join(', ')}`)
+            .join('; ') ||
+          `Failed to ${isEdit ? 'update' : 'create'} customer.`;
+        toast.error(errorMsg);
+        console.log('Submission error details:', error.response?.data);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const renderInput = (name, label, type = 'text', required = false) => (
     <div className="form-group mb-4">
       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -188,33 +534,32 @@ const handleSubmit = async () => {
       <input
         type={type}
         name={name}
-        value={formData[name]}
+        value={formData[name] || ''}
         onChange={handleInputChange}
         className="block w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
         required={required}
-        disabled={loading}
+        disabled={addingOptions[name]}
       />
     </div>
   );
 
-  // Render textarea field
   const renderTextarea = (name, label, rows = 3) => (
     <div className="form-group mb-4">
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       <textarea
         name={name}
-        value={formData[name]}
+        value={formData[name] || ''}
         onChange={handleInputChange}
         rows={rows}
         className="block w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-        disabled={loading || (name === 'officeAddress' && formData.sameAsSiteAddress)}
+        disabled={addingOptions[name] || (name === 'officeAddress' && formData.sameAsSiteAddress)}
       />
     </div>
   );
 
-  // Render select field with add option
-  const renderSelectWithAdd = (name, label, options = [], required = false, showAddButton = true) => {
-    console.log(`Rendering ${name} options:`, options);
+  const renderSelectWithAdd = (name, label, required = false, showAddButton = true) => {
+    const selectOptions = name === 'sector' ? existingOptions.sector : (existingOptions[name] || []);
+    console.log(`Rendering ${name} dropdown, selectOptions:`, selectOptions, `dropdownOptions.${name}Options:`, dropdownOptions[`${name}Options`]);
     return (
       <div className="form-group mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -223,18 +568,17 @@ const handleSubmit = async () => {
         <div className="flex">
           <select
             name={name}
-            value={formData[name]}
+            value={formData[name] || ''}
             onChange={handleInputChange}
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all appearance-none bg-white"
-            disabled={loading}
+            className="flex-1 px-4 py-2 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all appearance-none bg-white"
+            disabled={addingOptions[name] || !optionsLoaded}
             required={required}
           >
             <option value="">Select {label}</option>
-            {options.length > 0 ? (
-              options.map((option, index) => {
+            {selectOptions.length > 0 ? (
+              selectOptions.map((option, index) => {
                 const optionValue = typeof option === 'string' ? option : option.value;
-                const optionLabel = typeof option === 'string' ? option : option.label;
-                
+                const optionLabel = typeof option === 'string' ? option : option.label || option.value;
                 return (
                   <option key={`${name}-${optionValue}-${index}`} value={optionValue}>
                     {optionLabel}
@@ -245,41 +589,43 @@ const handleSubmit = async () => {
               <option value="" disabled>No options available</option>
             )}
           </select>
-          {showAddButton && (
+          {showAddButton && name !== 'sector' && (
             <button
               type="button"
               onClick={() => openAddModal(name)}
-              className="bg-gray-100 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:bg-gray-200 transition-all"
-              disabled={loading || addingOptions[name]}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 rounded-r-lg border border-l-0 border-gray-300 hover:from-blue-600 hover:to-blue-700 text-white transition-all"
+              disabled={addingOptions[name] || !optionsLoaded}
             >
               +
             </button>
           )}
         </div>
+        {selectOptions.length === 0 && required && (
+          <p className="text-sm text-red-500 mt-1">
+            No {label.toLowerCase()} options available. Please add one using the "+" button.
+          </p>
+        )}
       </div>
     );
   };
 
-  // Render checkbox field
   const renderCheckbox = (name, label) => (
     <div className="form-group mb-4 flex items-center">
       <input
         type="checkbox"
         name={name}
-        checked={formData[name]}
+        checked={formData[name] || false}
         onChange={handleInputChange}
         className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
-        disabled={loading}
+        disabled={addingOptions[name]}
       />
       <label className="ml-2 block text-sm text-gray-700">{label}</label>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      {/* Main Form Modal */}
+    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
-        {/* Modal Header */}
         <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
           <h2 className="text-2xl font-bold text-white">
             {isEdit ? 'Edit Customer' : 'Create New Customer'}
@@ -288,74 +634,111 @@ const handleSubmit = async () => {
             {isEdit ? 'Update customer details' : 'Fill in all required fields (*) to add a customer'}
           </p>
         </div>
-
-        {/* Modal Body */}
         <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - Basic Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                Basic Information
-              </h3>
-
-              {renderInput('siteId', 'SITE ID', 'text', true)}
-              {renderInput('jobNo', 'JOB NO')}
-              {renderInput('siteName', 'SITE NAME', 'text', true)}
-              {renderTextarea('siteAddress', 'SITE ADDRESS')}
-              {renderTextarea('officeAddress', 'OFFICE ADDRESS')}
-              {renderCheckbox('sameAsSiteAddress', 'Same as Site Address')}
-              {renderInput('contactPersonName', 'CONTACT PERSON NAME')}
-              {renderInput('designation', 'DESIGNATION')}
+          {optionsLoaded ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                  Basic Information
+                </h3>
+                {renderInput('siteId', 'SITE ID', 'text', true)}
+                {renderInput('jobNo', 'JOB NO')}
+                {renderInput('siteName', 'SITE NAME', 'text', true)}
+                {renderTextarea('siteAddress', 'SITE ADDRESS')}
+                {renderTextarea('officeAddress', 'OFFICE ADDRESS')}
+                {renderCheckbox('sameAsSiteAddress', 'Same as Site Address')}
+                {renderInput('contactPersonName', 'CONTACT PERSON NAME')}
+                {renderInput('designation', 'DESIGNATION')}
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                  Contact & Location
+                </h3>
+                {renderInput('email', 'EMAIL', 'email')}
+                {renderInput('phone', 'PHONE', 'tel')}
+                {renderInput('mobile', 'MOBILE (SMS NOTIFICATION)', 'tel')}
+                {renderInput('pinCode', 'PIN CODE')}
+                {renderInput('country', 'COUNTRY')}
+                {renderSelectWithAdd('state', 'STATE', true)}
+                {renderInput('city', 'CITY')}
+                {renderSelectWithAdd('sector', 'SECTOR', false, false)}
+                {renderSelectWithAdd('routes', 'ROUTE', true)}
+                {renderSelectWithAdd('branch', 'BRANCH', true)}
+                {renderInput('gstNumber', 'GST NUMBER')}
+                {renderInput('panNumber', 'PAN NUMBER')}
+                {renderInput('handoverDate', 'HANDOVER DATE', 'date')}
+                {renderInput('billingName', 'BILLING NAME')}
+              </div>
             </div>
-
-            {/* Right Column - Contact & Location Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                Contact & Location
-              </h3>
-
-              {renderInput('email', 'EMAIL', 'email')}
-              {renderInput('phone', 'PHONE', 'tel')}
-              {renderInput('mobile', 'MOBILE (SMS NOTIFICATION)', 'tel')}
-              {renderInput('pinCode', 'PIN CODE')}
-              {renderInput('country', 'COUNTRY')}
-              {renderSelectWithAdd('state', 'STATE', dropdownOptions.stateOptions, true)}
-              {renderInput('city', 'CITY')}
-              {renderSelectWithAdd('sector', 'SECTOR', dropdownOptions.sectorOptions, false, false)}
-              {renderSelectWithAdd('routes', 'ROUTE', dropdownOptions.routesOptions)}
-              {renderSelectWithAdd('branch', 'BRANCH', dropdownOptions.branchOptions)}
-              {renderInput('gstNumber', 'GST NUMBER')}
-              {renderInput('panNumber', 'PAN NUMBER')}
-              {renderInput('handoverDate', 'HANDOVER DATE', 'date')}
-              {renderInput('billingName', 'BILLING NAME')}
+          ) : (
+            <div className="flex justify-center items-center h-40">
+              <svg
+                className="animate-spin h-8 w-8 text-blue-500"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span className="ml-2 text-gray-600">Loading options...</span>
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Modal Footer */}
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
           <button
             onClick={onClose}
             className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all"
-            disabled={loading}
+            disabled={Object.values(addingOptions).some((v) => v)}
           >
             Cancel
           </button>
           <button
             onClick={() => {
-              console.log('Create Customer button clicked');
-              handleSubmit();
+              const now = Date.now();
+              if (!isSubmitting && (now - lastSubmitTime >= 500)) {
+                handleSubmit();
+              } else {
+                console.log('Submission throttled or already in progress, ignoring.');
+              }
             }}
-            className={`px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all shadow-md ${
-              loading ? 'opacity-70 cursor-not-allowed' : ''
+            className={`px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-[#213066] hover:to-[#182755] transition-all shadow-md ${
+              Object.values(addingOptions).some((v) => v) || !optionsLoaded || isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
             }`}
-            disabled={loading}
+            disabled={Object.values(addingOptions).some((v) => v) || !optionsLoaded || isSubmitting}
           >
-            {loading ? (
+            {Object.values(addingOptions).some((v) => v) || isSubmitting ? (
               <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 {isEdit ? 'Updating...' : 'Creating...'}
               </span>
@@ -365,42 +748,94 @@ const handleSubmit = async () => {
           </button>
         </div>
       </div>
-
-      {/* Modals for adding new options */}
-      {Object.entries(modalState).map(([field, { isOpen, value }]) => (
+      {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) => (
         isOpen && (
-          <div key={`modal-${field}`} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+          <div key={`modal-${field}`} className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Add New {field.charAt(0).toUpperCase() + field.slice(1)}
+                {isEditing
+                  ? `Edit ${field.replace(/([A-Z])/g, ' $1').trim()}`
+                  : `Add New ${field.replace(/([A-Z])/g, ' $1').trim()}`}
               </h3>
               <input
                 type="text"
                 value={value}
-                onChange={(e) => setModalState(prev => ({ 
-                  ...prev, 
-                  [field]: { ...prev[field], value: e.target.value } 
-                }))}
-                className="block w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all mb-4"
-                placeholder={`Enter new ${field}`}
-                disabled={loading}
+                onChange={(e) =>
+                  setModalState((prev) => ({
+                    ...prev,
+                    [field]: { ...prev[field], value: e.target.value },
+                  }))
+                }
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 mb-4"
+                placeholder={`Enter new ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}`}
+                disabled={addingOptions[field]}
               />
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Existing {field.replace(/([A-Z])/g, ' $1').trim()}s
+                </h4>
+                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="p-2 text-left">Name</th>
+                        <th className="p-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {existingOptions[field].length > 0 ? (
+                        existingOptions[field].map((option) => (
+                          <tr key={option.id} className="border-t">
+                            <td className="p-2">{option.value}</td>
+                            <td className="p-2 text-right">
+                              <button
+                                onClick={() => openAddModal(field, true, option.id, option.value)}
+                                className="text-blue-500 hover:text-blue-700 mr-2"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOption(field, option.id)}
+                                className="text-red-500 hover:text-red-700"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="2" className="p-2 text-center text-gray-500">
+                            No {field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}s found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => closeAddModal(field)}
-                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all"
-                  disabled={loading}
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all duration-200"
+                  disabled={addingOptions[field]}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => handleAddOption(field)}
-                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium hover:from-orange-600 hover:to-orange-700 transition-all ${
-                    loading ? 'opacity-70 cursor-not-allowed' : ''
+                  disabled={!value.trim() || addingOptions[field]}
+                  className={`px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white font-medium transition-all duration-200 ${
+                    !value.trim() || addingOptions[field]
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:from-blue-600 hover:to-blue-700'
                   }`}
-                  disabled={loading || addingOptions[field]}
                 >
-                  {loading ? 'Adding...' : 'Add'}
+                  {isEditing
+                    ? `Update ${field.replace(/([A-Z])/g, ' $1').trim()}`
+                    : `Add ${field.replace(/([A-Z])/g, ' $1').trim()}`}
                 </button>
               </div>
             </div>

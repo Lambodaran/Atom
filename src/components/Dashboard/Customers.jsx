@@ -223,7 +223,6 @@ const Customers = () => {
         states: statesRes.data
       });
       
-      // Ensure customers data is an array, fallback to empty array if invalid
       const customerData = Array.isArray(customersRes.data) ? customersRes.data : [];
       setCustomers(customerData);
       setFilteredCustomers(customerData);
@@ -269,7 +268,6 @@ const Customers = () => {
       } else {
         setError(err.message || 'Failed to fetch data');
         toast.error(err.response?.data?.message || 'Failed to fetch data');
-        // Set empty array as fallback to avoid undefined errors
         setCustomers([]);
         setFilteredCustomers([]);
       }
@@ -397,22 +395,21 @@ const Customers = () => {
 
   const handleFormSubmitSuccess = async (customerData) => {
     try {
+      // Use customerData directly from CustomerForm for immediate UI update
       if (editData) {
-        const response = await customerApi.editCustomer(editData.id, customerData);
         setCustomers(customers.map(c => 
-          c.id === editData.id ? { ...response.data, site_id: response.data.site_id || customerData.site_id } : c
+          c.id === editData.id ? { ...customerData, id: editData.id } : c
         ));
         toast.success('Customer updated successfully');
       } else {
-        const response = await customerApi.addCustomer(customerData);
-        // Ensure the new customer is added to the state with the correct structure
-        setCustomers([...customers, { ...response.data, id: response.data.id, site_id: response.data.site_id || customerData.site_id }]);
+        // For new customers, assume CustomerForm provides the id from API response
+        setCustomers([...customers, { ...customerData, id: customerData.id }]);
         toast.success('Customer added successfully');
       }
       setShowForm(false);
     } catch (err) {
-      console.error('Error submitting form:', err);
-      toast.error(`Error: ${err.response?.data?.message || JSON.stringify(err.response?.data) || err.message}`);
+      console.error('Error updating state:', err);
+      toast.error(`Error: ${err.message || 'Failed to update customer list'}`);
     }
   };
 

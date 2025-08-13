@@ -482,6 +482,112 @@ const Customers = () => {
     ));
   };
 
+  // New: Import CSV handler
+  const handleImportCSV = async (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      toast.error('Please select a CSV file to import.');
+      return;
+    }
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please select a valid CSV file.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      await axios.post(`${apiBaseUrl}/sales/import-customers-csv/`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Customers imported successfully.');
+      fetchData(); // Refresh the customer data
+    } catch (error) {
+      console.error('Error importing customers:', error);
+      toast.error(error.response?.data?.error || 'Failed to import customers.');
+    }
+  };
+
+  // New: Export handler
+  const handleExport = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${apiBaseUrl}/sales/export-customers/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'customers_export.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Customers exported successfully.');
+    } catch (error) {
+      console.error('Error exporting customers:', error);
+      toast.error(error.response?.data?.error || 'Failed to export customers.');
+    }
+  };
+
+  // New: Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (selectedCustomers.length === 0) {
+      toast.warning('No customers selected for deletion');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete ${selectedCustomers.length} selected customers?`)) {
+      try {
+        const token = localStorage.getItem('access_token');
+        await Promise.all(
+          selectedCustomers.map(id => 
+            axios.delete(`${apiBaseUrl}/sales/delete-customer/${id}/`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          )
+        );
+        setCustomers(prev => prev.filter(customer => !selectedCustomers.includes(customer.id)));
+        setSelectedCustomers([]);
+        toast.success(`${selectedCustomers.length} customers deleted successfully.`);
+      } catch (error) {
+        console.error('Error deleting customers:', error);
+        toast.error(error.response?.data?.error || 'Failed to delete selected customers.');
+      }
+    }
+  };
+
+  // New: Click outside handler for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const bulkActions = document.getElementById('bulk-actions-dropdown');
+      const options = document.getElementById('options-dropdown');
+      
+      if (bulkActions && !event.target.closest('#bulk-actions-menu') && !bulkActions.contains(event.target)) {
+        bulkActions.classList.add('hidden');
+      }
+      
+      if (options && !event.target.closest('#options-menu') && !options.contains(event.target)) {
+        options.classList.add('hidden');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   if (isLoading) {
     return <div className="container mx-auto p-6 text-center">Loading...</div>;
   }
@@ -507,56 +613,100 @@ const Customers = () => {
             <span className="sm:hidden">Assign</span>
           </button>
           
-          <div className="relative">
-            <button 
-              onClick={() => setShowBulkMenu(!showBulkMenu)}
-              className="flex items-center bg-white text-gray-700 px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-sm sm:text-base"
+          {/* Updated: Bulk Actions Dropdown like in Lifts */}
+          <div className="relative inline-block text-left">
+            <div>
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center rounded-md px-3 md:px-4 py-2 text-sm md:text-base font-medium focus:outline-none focus:ring-2 focus:ring-[#243158] focus:ring-offset-2 ${
+                  selectedCustomers.length > 0
+                    ? 'bg-[#243158] text-white hover:bg-[#243158]'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                id="bulk-actions-menu"
+                aria-expanded="true"
+                aria-haspopup="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  document.getElementById('bulk-actions-dropdown').classList.toggle('hidden');
+                }}
+              >
+                Bulk Actions
+                <ChevronDown className="ml-1 md:ml-2 w-4 md:w-5 h-4 md:h-5" />
+              </button>
+            </div>
+            <div
+              id="bulk-actions-dropdown"
+              className="hidden absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+              role="menu"
+              aria-orientation="vertical"
+              aria-labelledby="bulk-actions-menu"
+              tabIndex="-1"
             >
-              <List size={16} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Bulk Action</span>
-              <span className="sm:hidden">Action</span>
-            </button>
-            
-            {showBulkMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                <div className="py-1">
-                  <button onClick={() => handleBulkAction('Export')} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Export Selected
-                  </button>
-                  <button onClick={() => handleBulkAction('Delete')} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Delete Selected
-                  </button>
-                  <button onClick={() => handleBulkAction('Status Update')} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Update Status
-                  </button>
-                </div>
+              <div className="py-1" role="none">
+                <button
+                  onClick={handleBulkDelete}
+                  className="text-gray-700 block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                  role="menuitem"
+                  tabIndex="-1"
+                >
+                  Delete Selected
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
-          <div className="relative">
-            <button 
-              onClick={() => setShowThreeDotMenu(!showThreeDotMenu)}
-              className="flex items-center justify-center bg-white text-gray-700 p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+          {/* Updated: 3-Dot Menu like in Lifts */}
+          <div className="relative inline-block text-left">
+            <div>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#243158] focus:ring-offset-2"
+                id="options-menu"
+                aria-expanded="true"
+                aria-haspopup="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  document.getElementById('options-dropdown').classList.toggle('hidden');
+                }}
+              >
+                <MoreVertical size={16} />
+              </button>
+            </div>
+            <div
+              id="options-dropdown"
+              className="hidden absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+              role="menu"
+              aria-orientation="vertical"
+              aria-labelledby="options-menu"
+              tabIndex="-1"
             >
-              <MoreVertical size={16} />
-            </button>
-            
-            {showThreeDotMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                <div className="py-1">
-                  <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Import Customers
-                  </button>
-                  <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Export All
-                  </button>
-                  <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    Settings
-                  </button>
-                </div>
+              <div className="py-1" role="none">
+                <label
+                  htmlFor="import-csv"
+                  className="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                  role="menuitem"
+                  tabIndex="-1"
+                >
+                  Import CSV
+                </label>
+                <input
+                  type="file"
+                  id="import-csv"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleImportCSV}
+                />
+                <button
+                  onClick={handleExport}
+                  className="text-gray-700 block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                  role="menuitem"
+                  tabIndex="-1"
+                >
+                  Export
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
           <button 

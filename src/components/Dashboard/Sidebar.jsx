@@ -22,6 +22,7 @@ import {
   Repeat,
   FileBadge,
   ShoppingCart,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import logo from '../../assets/logo.png';
@@ -88,8 +89,14 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
     { name: 'Monthly Load', icon: <BarChart2 className="h-5 w-5" />, path: '/dashboard/monthly-load', key: 'monthly-load' },
     { name: 'Services Schedule', icon: <CalendarCheck className="h-5 w-5" />, path: '/dashboard/services-schedule', key: 'services-schedule' },
     { name: 'Material Request', icon: <ClipboardList className="h-5 w-5" />, path: '/dashboard/material-request', key: 'material-request' },
-    { name: 'Inventory', icon: <Warehouse className="h-5 w-5" />, path: '/dashboard/inventory', key: 'inventory' },
+    { name: 'Inventory', icon: <Warehouse className="h-5 w-5" />, path: '/dashboard/inventory', key: 'inventory',
+        subItems: [
+          { name: 'Requisition', path: '/dashboard/requisition', key: 'requisition', icon: <ClipboardList className="h-4 w-4" /> },
+          { name: 'Stock Register', path: '/dashboard/stock-register', key: 'stock-register', icon: <ClipboardCheck className="h-4 w-4" /> }
+        ],
+      },
     { name: 'Reports', icon: <FileBarChart2 className="h-5 w-5" />, path: '/dashboard/reports', key: 'reports' },
+    { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
   ];
 
   const toggleMenuExpand = (key) => {
@@ -229,7 +236,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
       {/* Bottom Links */}
       <div className="p-2 border-t border-gray-200">
         <Link
-          to="/profile"
+          to="/dashboard/profile"
           onClick={() => isMobile && toggleSidebar()}
           className={`
             flex items-center p-3 mx-2 rounded-md hover:bg-[#243158] hover:text-white

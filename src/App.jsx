@@ -31,7 +31,10 @@ import LastMonthCompleted from './components/Dashboard/LastMonthCompleted';
 import PendingAssignServices from './components/Dashboard/PendingAssignServices';
 import NewItemForm from './components/Dashboard/Forms/NewItemForm';
 import Complaints from './components/Dashboard/Complaints';
-
+import Employees from './components/Dashboard/Employees';
+import Requisition from './components/Dashboard/Requisition'; // Importing the Requisition component
+import Profile from './components/Dashboard/profile'; // Importing the Profile component
+import Settings from './components/Dashboard/Settings'; 
 
 // Home component
 import Home from './components/Homepage/Home'; // Assuming Home component exists
@@ -77,6 +80,10 @@ function App() {
           <Route path="/dashboard/last-month-completed" element={<LastMonthCompleted />} />
           <Route path="/dashboard/pending-assign" element={<PendingAssignServices />} />
           <Route path="/dashboard/complaints" element={<Complaints />} />
+          <Route path="/dashboard/employees" element={<Employees />} />
+          <Route path="/dashboard/requisition" element={<Requisition />} />
+          <Route path="/dashboard/profile" element={<Profile />} />
+          <Route path="/dashboard/settings" element={<Settings />} />
         </Route>
 
         {/* Authentication routes */}

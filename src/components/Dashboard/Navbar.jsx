@@ -1,15 +1,28 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [username, setUsername] = useState('Admin'); // Default to 'Admin'
 
+  const navigate = useNavigate();
+
+  const handleSignOut = () => {
+    console.log("Sign out button clicked");
+    localStorage.removeItem("user");
+    setIsProfileOpen(false);
+    navigate("/login");
+  };
+
   // Close profile dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (isProfileOpen && !e.target.closest('.profile-dropdown-trigger')) {
+      if (
+        isProfileOpen &&
+        !e.target.closest('.profile-dropdown-trigger') &&
+        !e.target.closest('.profile-dropdown-menu')
+      ) {
         setIsProfileOpen(false);
       }
     };
@@ -177,29 +190,34 @@ const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
 
           {/* Profile Dropdown */}
           {isProfileOpen && (
-            <div className={`absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 ${isMobile ? 'origin-top-right' : ''}`}>
+            <div className={`absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 ${isMobile ? 'origin-top-right' : ''} profile-dropdown-menu`}>
               <Link
-                to="/profile"
+                to="/dashboard/profile"
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={() => setIsProfileOpen(false)}
+                onClick={() => {
+                  console.log("Profile link clicked");
+                  setIsProfileOpen(false);
+                }}
               >
                 Your Profile
               </Link>
               <Link
-                to="/settings"
+                to="/dashboard/settings"
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={() => setIsProfileOpen(false)}
+                onClick={() => {
+                  console.log("Settings link clicked");
+                  setIsProfileOpen(false);
+                }}
               >
                 Settings
               </Link>
               <div className="border-t border-gray-200"></div>
-              <Link
-                to="/logout"
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={() => setIsProfileOpen(false)}
+              <button
+                onClick={handleSignOut}
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >
                 Sign out
-              </Link>
+              </button>
             </div>
           )}
         </div>

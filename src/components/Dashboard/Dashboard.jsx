@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { User, DollarSign, AlertTriangle, FileText, Wrench } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import {
@@ -16,26 +16,154 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const DashboardPage = () => {
   const [selectedMonth, setSelectedMonth] = useState('October');
+  const [amcData, setAmcData] = useState([]);
+  const [customerData, setCustomerData] = useState([]);
+  const [complaintData, setComplaintData] = useState([]);
+  const [invoiceData, setInvoiceData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const stats = [
-    { title: 'AMC Due', value: 104, change: '8.5% Up', trend: 'up', icon: <User className="w-6 h-6 text-purple-500" /> },
-    { title: 'Income', value: 10293, change: '1.3% Up', trend: 'up', icon: <DollarSign className="w-6 h-6 text-yellow-500" /> },
-    { title: 'Open Complaints', value: '12/26', change: '4.3% Down', trend: 'down', icon: <AlertTriangle className="w-6 h-6 text-green-500" /> },
-    { title: 'Open Invoice', value: '13/76', change: '1.8% Up', trend: 'up', icon: <FileText className="w-6 h-6 text-orange-500" /> },
-    { title: 'Customer', value: 534, change: '8.5% Up', trend: 'up', icon: <User className="w-6 h-6 text-purple-500" /> },
-    { title: 'Complaint', value: 238, change: '1.3% Up', trend: 'up', icon: <AlertTriangle className="w-6 h-6 text-yellow-500" /> },
-  ];
+  // Get token from where you store it (localStorage, cookies, etc.)
+  const getAuthToken = () => {
+    return localStorage.getItem('access_token'); // Updated to match the stored key
+  };
 
-  const complaints = [
-    { subject: 'Call book admin', assignedTo: 'Gopinath D', status: 'Closed', created: '02/07/2025 3:04PM' },
-  ];
+  const fetchWithAuth = async (url) => {
+    const token = getAuthToken();
+    if (!token) {
+      console.warn('No authentication token found, redirecting to login...');
+      window.location.href = '/login'; // Redirect to login page
+      return [];
+    }
 
-  // Mock data for the graph
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [amcRes, customerRes, complaintRes, invoiceRes] = await Promise.all([
+          fetchWithAuth(`${import.meta.env.VITE_BASE_API}/amc/amc-list/`).catch(e => {
+            console.error('Error fetching AMC data:', e);
+            setError(prev => prev ? `${prev}, AMC data failed` : 'AMC data failed');
+            return [];
+          }),
+          fetchWithAuth(`${import.meta.env.VITE_BASE_API}/sales/customer-list/`).catch(e => {
+            console.error('Error fetching customer data:', e);
+            setError(prev => prev ? `${prev}, Customer data failed` : 'Customer data failed');
+            return [];
+          }),
+          fetchWithAuth(`${import.meta.env.VITE_BASE_API}/auth/complaint-list/`).catch(e => {
+            console.error('Error fetching complaint data:', e);
+            setError(prev => prev ? `${prev}, Complaint data failed` : 'Complaint data failed');
+            return [];
+          }),
+          fetchWithAuth(`${import.meta.env.VITE_BASE_API}/sales/invoice-list/`).catch(e => {
+            console.error('Error fetching invoice data:', e);
+            setError(prev => prev ? `${prev}, Invoice data failed` : 'Invoice data failed');
+            return [];
+          }),
+        ]);
+
+        setAmcData(Array.isArray(amcRes) ? amcRes : []);
+        setCustomerData(Array.isArray(customerRes) ? customerRes : []);
+        setComplaintData(Array.isArray(complaintRes) ? complaintRes : []);
+        setInvoiceData(Array.isArray(invoiceRes) ? invoiceRes : []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to load some or all dashboard data. Please check your authentication and try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Calculate stats from API data with safe defaults
+  const calculateStats = () => {
+    const safeAmcData = Array.isArray(amcData) ? amcData : [];
+    const safeCustomerData = Array.isArray(customerData) ? customerData : [];
+    const safeComplaintData = Array.isArray(complaintData) ? complaintData : [];
+    const safeInvoiceData = Array.isArray(invoiceData) ? invoiceData : [];
+    
+    const amcDue = safeAmcData.filter(amc => amc.status === "Pending").length;
+    const income = 10293; // Mock data
+    const totalComplaints = safeComplaintData.length;
+    const closedComplaints = safeComplaintData.filter(c => c.solution).length;
+    const openComplaints = totalComplaints - closedComplaints;
+    const totalInvoices = safeInvoiceData.length;
+    const openInvoices = safeInvoiceData.filter(inv => inv.status === "open").length;
+    const customerCount = safeCustomerData.length;
+    const complaintCount = safeComplaintData.length;
+
+    return [
+      { 
+        title: 'AMC Due', 
+        value: amcDue, 
+        change: '8.5% Up', 
+        trend: 'up', 
+        icon: <User className="w-6 h-6 text-purple-500" /> 
+      },
+      { 
+        title: 'Income', 
+        value: income, 
+        change: '1.3% Up', 
+        trend: 'up', 
+        icon: <DollarSign className="w-6 h-6 text-yellow-500" /> 
+      },
+      { 
+        title: 'Open Complaints', 
+        value: `${openComplaints}/${totalComplaints}`, 
+        change: '4.3% Down', 
+        trend: 'down', 
+        icon: <AlertTriangle className="w-6 h-6 text-green-500" /> 
+      },
+      { 
+        title: 'Open Invoice', 
+        value: `${openInvoices}/${totalInvoices}`, 
+        change: '1.8% Up', 
+        trend: 'up', 
+        icon: <FileText className="w-6 h-6 text-orange-500" /> 
+      },
+      { 
+        title: 'Customer', 
+        value: customerCount, 
+        change: '8.5% Up', 
+        trend: 'up', 
+        icon: <User className="w-6 h-6 text-purple-500" /> 
+      },
+      { 
+        title: 'Complaint', 
+        value: complaintCount, 
+        change: '1.3% Up', 
+        trend: 'up', 
+        icon: <AlertTriangle className="w-6 h-6 text-yellow-500" /> 
+      },
+    ];
+  };
+
+  const stats = useMemo(() => calculateStats(), [amcData, customerData, complaintData, invoiceData]);
+
   const graphData = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
-        label: 'Dataset 1',
+        label: 'Income',
         data: [50, 75, 60, 80, 65, 90, 70],
         borderColor: 'rgb(0, 149, 255)',
         backgroundColor: 'rgba(0, 149, 255, 0.2)',
@@ -44,7 +172,7 @@ const DashboardPage = () => {
         pointBackgroundColor: 'rgb(0, 149, 255)',
       },
       {
-        label: 'Dataset 2',
+        label: 'Services',
         data: [60, 80, 70, 85, 75, 95, 80],
         borderColor: 'rgb(0, 255, 149)',
         backgroundColor: 'rgba(0, 255, 149, 0.2)',
@@ -73,6 +201,29 @@ const DashboardPage = () => {
     },
   };
 
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
+        <div className="text-lg font-medium text-gray-600">Loading dashboard data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
+        <div className="text-lg font-medium text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  const months = [...new Set(complaintData.map(complaint => 
+    new Date(complaint.date).toLocaleString('default', { month: 'long' })
+  ))];
+  const filteredComplaints = complaintData.filter(complaint => 
+    new Date(complaint.date).toLocaleString('default', { month: 'long' }) === selectedMonth
+  );
+
   return (
     <div className="p-4 sm:p-6 space-y-6 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
@@ -95,7 +246,9 @@ const DashboardPage = () => {
           <Wrench className="w-6 h-6 text-gray-400" />
           <div>
             <h3 className="text-gray-500 font-medium text-sm">AMC Renew in Progress</h3>
-            <div className="text-xl font-bold my-1">No AMC Renew in progress</div>
+            <div className="text-xl font-bold my-1">
+              {amcData.filter(amc => amc.status === "Pending").length} AMCs pending renewal
+            </div>
           </div>
         </div>
       </div>
@@ -103,7 +256,7 @@ const DashboardPage = () => {
       {/* Graph Placeholder */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-          <h3 className="text-gray-500 font-medium text-sm">Graph Placeholder</h3>
+          <h3 className="text-gray-500 font-medium text-sm">Weekly Performance</h3>
           <div className="h-64">
             <Line data={graphData} options={graphOptions} />
           </div>
@@ -119,7 +272,9 @@ const DashboardPage = () => {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1 mt-2 sm:mt-0 w-full sm:w-auto"
           >
-            <option value="October">October</option>
+            {months.map(month => (
+              <option key={month} value={month}>{month}</option>
+            ))}
           </select>
         </div>
         <div className="overflow-x-auto">
@@ -136,15 +291,21 @@ const DashboardPage = () => {
               </tr>
             </thead>
             <tbody>
-              {complaints.map((complaint, index) => (
-                <tr key={index} className="border-t">
+              {filteredComplaints.map((complaint) => (
+                <tr key={complaint.id} className="border-t">
                   <td className="p-2"></td>
                   <td className="p-2 text-sm">{complaint.subject}</td>
-                  <td className="p-2 text-sm">{complaint.assignedTo}</td>
-                  <td className="p-2"><span className="text-green-500 bg-green-100 px-2 py-1 rounded-full text-xs">{complaint.status}</span></td>
-                  <td className="p-2 text-sm">{complaint.created}</td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
+                  <td className="p-2 text-sm">{complaint.assign_to_name}</td>
+                  <td className="p-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      complaint.solution ? 'text-green-500 bg-green-100' : 'text-yellow-500 bg-yellow-100'
+                    }`}>
+                      {complaint.solution ? 'Closed' : 'Open'}
+                    </span>
+                  </td>
+                  <td className="p-2 text-sm">{new Date(complaint.date).toLocaleString()}</td>
+                  <td className="p-2 text-sm">{complaint.solution || '-'}</td>
+                  <td className="p-2 text-sm">{complaint.technician_remark || '-'}</td>
                 </tr>
               ))}
             </tbody>

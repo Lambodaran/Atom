@@ -1,32 +1,84 @@
 import { useState } from 'react';
+import axios from 'axios';
 
 const Settings = () => {
-  const [formData, setFormData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setMessage('');
+    setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage('');
+    setError('');
+
+    // Client-side validation
     if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-      setMessage('Please fill in all fields.');
+      setError('Please fill in all fields.');
       return;
     }
     if (formData.newPassword.length < 6) {
-      setMessage('New password must be at least 6 characters.');
+      setError('New password must be at least 6 characters.');
       return;
     }
     if (formData.newPassword !== formData.confirmPassword) {
-      setMessage('New password and confirm password do not match.');
+      setError('New password and confirm password do not match.');
       return;
     }
-    // Placeholder for API call to change password
-    console.log('Changing password:', formData);
-    setMessage('Password changed successfully! (Mock)');
-    setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' }); // Clear fields
+
+    // Get the JWT token from localStorage
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setError('Please log in to change your password.');
+      return;
+    }
+
+    try {
+      console.log('Sending request with token:', token); // Debug token
+      const response = await axios.post(
+        'http://localhost:8000/auth/change-password/', // Replace with your actual API URL
+        {
+          current_password: formData.currentPassword,
+          new_password: formData.newPassword,
+          confirm_password: formData.confirmPassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log('Success response:', response.data); // Debug success
+      setMessage(response.data.message);
+      setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' }); // Clear form
+    } catch (err) {
+      console.error('Error details:', err); // Log full error for debugging
+      if (err.response) {
+        console.log('Response data:', err.response.data); // Log backend response
+        setError(
+          err.response.data.current_password?.[0] || // Array-style errors
+          err.response.data.confirm_password?.[0] ||
+          err.response.data.message ||
+          'An error occurred while changing the password.'
+        );
+      } else if (err.request) {
+        setError('No response from the server. Please check your network.');
+      } else {
+        setError('An error occurred. Please try again later.');
+      }
+    }
   };
 
   return (
@@ -67,7 +119,8 @@ const Settings = () => {
               placeholder="Confirm new password"
             />
           </div>
-          {message && <p className="text-sm text-center text-red-500">{message}</p>}
+          {message && <p className="text-sm text-center text-green-500">{message}</p>}
+          {error && <p className="text-sm text-center text-red-500">{error}</p>}
           <div className="mt-6 flex justify-center">
             <button
               type="submit"

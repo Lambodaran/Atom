@@ -37,6 +37,18 @@ import Profile from './components/Dashboard/profile';
 import Settings from './components/Dashboard/Settings'; 
 import MonthlyLoad from './components/Dashboard/MonthlyLoad'; 
 import RoutineServieSchedule from './components/Dashboard/RoutineServieSchedule';
+import StockRegister from './components/Dashboard/StockRegister';
+import MaterialRequest from './components/Dashboard/MaterialRequest';
+import ComplaintReport from './components/Dashboard/ComplaintReport';
+import LifeWiseComplaint from './components/Dashboard/LifeWiseComplaint';
+import AMCreport from './components/Dashboard/AMCreport';
+import RoutineServiceReport from './components/Dashboard/RoutineServiceReport';
+import AMCnextPaymentDueReport from './components/Dashboard/AMCnextPaymentDueReport'; 
+import InvoiceReport from './components/Dashboard/InvoiceReport';
+import PaymentReport from './components/Dashboard/PaymentReport';  
+import QuotationReport from './components/Dashboard/QuotationReport';
+import ExpiringReport from './components/Dashboard/ExpiringReport';
+import No_Of_Expired_Free_Waranty from './components/Dashboard/No_Of_Expired_Free_Waranty';
 
 // Home component
 import Home from './components/Homepage/Home'; // Assuming Home component exists
@@ -88,6 +100,18 @@ function App() {
           <Route path="/dashboard/settings" element={<Settings />} />
           <Route path="/dashboard/monthly-load" element={<MonthlyLoad />} />
           <Route path="/dashboard/services-schedule" element={<RoutineServieSchedule />} />
+          <Route path="/dashboard/stock-register" element={<StockRegister />} />
+          <Route path="/dashboard/material-request" element={<MaterialRequest />} />
+          <Route path="/dashboard/complaint-report" element={<ComplaintReport />} />
+          <Route path="/dashboard/life-wise-complaint" element={<LifeWiseComplaint />} />
+          <Route path="/dashboard/amc-report" element={<AMCreport />} />
+          <Route path="/dashboard/routine-services-report" element={<RoutineServiceReport />} />
+          <Route path="/dashboard/amc-next-payment-due-report" element={<AMCnextPaymentDueReport />} />
+          <Route path="/dashboard/invoice-report" element={<InvoiceReport />} />
+          <Route path="/dashboard/payment-report" element={<PaymentReport />} />
+          <Route path="/dashboard/quotation-report" element={<QuotationReport />} />
+          <Route path="/dashboard/expiring-report" element={<ExpiringReport />} />
+          <Route path="/dashboard/expired-free-warranty-report" element={<No_Of_Expired_Free_Waranty />} />
         </Route>
 
         {/* Authentication routes */}

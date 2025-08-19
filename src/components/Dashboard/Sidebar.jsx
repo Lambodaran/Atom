@@ -95,7 +95,24 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
           { name: 'Stock Register', path: '/dashboard/stock-register', key: 'stock-register', icon: <ClipboardCheck className="h-4 w-4" /> }
         ],
       },
-    { name: 'Reports', icon: <FileBarChart2 className="h-5 w-5" />, path: '/dashboard/reports', key: 'reports' },
+   {
+  name: 'Reports',
+  icon: <FileText className="h-5 w-5" />, // Using FileText for the main Reports icon
+  path: '/reports',
+  key: 'reports',
+  subItems: [
+    { name: 'Complaint', path: '/dashboard/complaint-report', key: 'report-complaint' },
+    { name: 'Life Wise Complaint', path: '/dashboard/life-wise-complaint', key: 'report-life-wise-complaint' },
+    { name: 'AMC', path: '/dashboard/amc-report', key: 'report-amc' },
+    { name: 'Routine Services', path: '/dashboard/routine-services-report', key: 'report-routine-services' },
+    { name: 'AMC Next Payment Due', path: '/dashboard/amc-next-payment-due-report', key: 'report-amc-next-payment-due' },
+    { name: 'Invoice', path: '/dashboard/invoice-report', key: 'report-invoice' },
+    { name: 'Payment', path: '/dashboard/payment-report', key: 'report-payment' },
+    { name: 'Quotation', path: '/dashboard/quotation-report', key: 'report-quotation' },
+    { name: 'Expiring', path: '/dashboard/expiring-report', key: 'report-expiring' },
+    { name: 'No. of Expired Free Warranty', path: '/dashboard/expired-free-warranty-report', key: 'report-expired-free-warranty' },
+  ],
+},
     // { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
   ];
 

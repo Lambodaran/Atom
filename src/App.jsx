@@ -32,9 +32,11 @@ import PendingAssignServices from './components/Dashboard/PendingAssignServices'
 import NewItemForm from './components/Dashboard/Forms/NewItemForm';
 import Complaints from './components/Dashboard/Complaints';
 import Employees from './components/Dashboard/Employees';
-import Requisition from './components/Dashboard/Requisition'; // Importing the Requisition component
-import Profile from './components/Dashboard/profile'; // Importing the Profile component
+import Requisition from './components/Dashboard/Requisition'; 
+import Profile from './components/Dashboard/profile'; 
 import Settings from './components/Dashboard/Settings'; 
+import MonthlyLoad from './components/Dashboard/MonthlyLoad'; 
+import RoutineServieSchedule from './components/Dashboard/RoutineServieSchedule';
 
 // Home component
 import Home from './components/Homepage/Home'; // Assuming Home component exists
@@ -84,6 +86,8 @@ function App() {
           <Route path="/dashboard/requisition" element={<Requisition />} />
           <Route path="/dashboard/profile" element={<Profile />} />
           <Route path="/dashboard/settings" element={<Settings />} />
+          <Route path="/dashboard/monthly-load" element={<MonthlyLoad />} />
+          <Route path="/dashboard/services-schedule" element={<RoutineServieSchedule />} />
         </Route>
 
         {/* Authentication routes */}

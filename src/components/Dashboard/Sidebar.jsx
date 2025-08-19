@@ -96,7 +96,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
         ],
       },
     { name: 'Reports', icon: <FileBarChart2 className="h-5 w-5" />, path: '/dashboard/reports', key: 'reports' },
-    { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
+    // { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
   ];
 
   const toggleMenuExpand = (key) => {

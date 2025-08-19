@@ -64,7 +64,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
         { name: 'Invoice', icon: <FileText className="h-5 w-5" />, path: '/dashboard/invoice', key: 'invoice' },
         { name: 'Payment Received', icon: <CreditCard className="h-5 w-5" />, path: '/dashboard/payment-received', key: 'paymentReceived' },
         { name: 'Recurring Invoices', icon: <Repeat className="h-5 w-5" />, path: '/dashboard/recurring-invoices', key: 'recurringInvoices' },
-        { name: 'Credit Notes', icon: <FileBadge className="h-5 w-5" />, path: '/dashboard/credit-notes', key: 'creditNotes' },
+        // { name: 'Credit Notes', icon: <FileBadge className="h-5 w-5" />, path: '/dashboard/credit-notes', key: 'creditNotes' },
       ],
     },
     {
@@ -113,7 +113,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
     { name: 'No. of Expired Free Warranty', path: '/dashboard/expired-free-warranty-report', key: 'report-expired-free-warranty' },
   ],
 },
-    // { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
+    { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
   ];
 
   const toggleMenuExpand = (key) => {

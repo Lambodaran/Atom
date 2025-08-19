@@ -4,54 +4,78 @@ import axios from 'axios';
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
 const Profile = () => {
-  const [user, setUser] = useState({ username: 'Guest', email: '', phone: '', photo: '' });
+  const [user, setUser] = useState({ 
+    username: 'Guest', 
+    email: '', 
+    phone: '', 
+    photo: null 
+  });
   const [isEditing, setIsEditing] = useState(false);
-  const [editValues, setEditValues] = useState({ username: 'Guest', email: '', phone: '', photo: '' });
+  const [editValues, setEditValues] = useState({ 
+    username: 'Guest', 
+    email: '', 
+    phone: '', 
+    photo: null 
+  });
   const [selectedFile, setSelectedFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+
+  const fetchProfile = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${apiBaseUrl}/auth/profile/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200) {
+        const data = response.data;
+        console.log('Fetched profile data:', data);
+        setUser(data);
+        setEditValues(data);
+        if (data.photo) {
+          setPhotoPreview(data.photo); // ✅ full URL directly
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error.response?.data || error.message);
+    }
+  };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
-
-      try {
-        const response = await axios.get(`${apiBaseUrl}/auth/profile/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.status === 200) {
-          const data = response.data;
-          console.log('Fetched profile data:', data);
-          setUser(data);
-          setEditValues(data);
-        } else {
-          console.error('Failed to fetch profile:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error.response?.data || error.message);
-      }
-    };
-
     fetchProfile();
   }, []);
 
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
+    if (!isEditing) {
+      setEditValues(user);
+      setSelectedFile(null);
+      setPhotoPreview(user.photo ? user.photo : null); // ✅ full URL directly
+    }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditValues((prev) => ({ ...prev, [name]: value }));
+    setEditValues(prev => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+      }
       setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setEditValues((prev) => ({ ...prev, photo: url }));
+      const previewUrl = URL.createObjectURL(file);
+      setPhotoPreview(previewUrl);
+    } else {
+      setSelectedFile(null);
+      setPhotoPreview(user.photo ? user.photo : null);
     }
   };
 
@@ -68,45 +92,41 @@ const Profile = () => {
     }
 
     try {
-      const response = await axios.put(`${apiBaseUrl}/auth/update-profile/`, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.put(
+        `${apiBaseUrl}/auth/update-profile/`, 
+        formData, 
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
 
       if (response.status === 200) {
-        const data = response.data;
-        console.log('Profile saved successfully:', data);
-        setUser(data);
+        await fetchProfile(); // Refresh the profile data
         setIsEditing(false);
         setSelectedFile(null);
-        // Refresh profile data after save
-        await fetchProfile();
-      } else {
-        console.error('Failed to save profile:', response.statusText);
       }
     } catch (error) {
       console.error('Error saving profile:', error.response?.data || error.message);
+      alert('Failed to update profile. Please try again.');
     }
   };
 
   const renderProfilePicture = () => {
-    const photo = isEditing && editValues.photo ? editValues.photo : user.photo;
+    const photoUrl = isEditing ? photoPreview : user.photo;
 
-    if (photo) {
-      const src = photo.startsWith('blob:') 
-        ? photo 
-        : (photo.startsWith('/media') ? `${apiBaseUrl}${photo}` : photo) + `?t=${new Date().getTime()}`;
-      console.log('Image src:', src);
+    if (photoUrl) {
       return (
         <img
-          src={src}
+          src={photoUrl} // ✅ already a full URL
           alt="Profile"
           className="w-24 h-24 rounded-full object-cover border-2 border-blue-500"
-          onError={(e) => { 
-            e.target.src = ''; 
-            console.error('Image failed to load:', photo); 
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = '';
+            setPhotoPreview(null);
           }}
         />
       );
@@ -170,12 +190,20 @@ const Profile = () => {
         </div>
         <div className="mt-6 flex justify-center">
           {isEditing ? (
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Save
-            </button>
+            <>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 mr-2"
+              >
+                Save
+              </button>
+              <button
+                onClick={handleEditToggle}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+            </>
           ) : (
             <button
               onClick={handleEditToggle}

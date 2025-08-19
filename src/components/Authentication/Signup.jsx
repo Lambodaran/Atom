@@ -160,7 +160,7 @@ const SignupPage = () => {
             </div>
 
             {/* Mobile Number Field */}
-            <div>
+            {/* <div>
               <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 Mobile Number
               </label>
@@ -179,7 +179,7 @@ const SignupPage = () => {
                   required
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Terms Checkbox */}
             <div className="flex items-center">

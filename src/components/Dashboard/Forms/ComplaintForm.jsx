@@ -336,14 +336,14 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
                         <option key={employee.id} value={employee.id}>{employee.name}</option>
                       ))}
                     </select>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => openEmployeeModal(false)}
                       className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition duration-200"
                       aria-label="Add New Employee"
                     >
                       +
-                    </button>
+                    </button> */}
                   </div>
                 </div>
                 {/* Priority */}

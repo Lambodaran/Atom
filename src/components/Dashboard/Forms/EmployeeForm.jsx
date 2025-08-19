@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
-
 const EmployeeForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmitError }) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -28,7 +27,7 @@ const EmployeeForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmitE
     } else {
       console.log('Token found on mount:', token.substring(0, 10) + '...');
     }
-  }, [navigate]); // Avoid re-running on token changes
+  }, [navigate]);
 
   useEffect(() => {
     if (isEdit && initialData) {
@@ -71,7 +70,7 @@ const EmployeeForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmitE
       };
       fetchEmployee();
     }
-  }, [id, isEdit, initialData, token]); // Include token to re-fetch if it changes
+  }, [id, isEdit, initialData, token]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -121,7 +120,7 @@ const EmployeeForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmitE
       onSubmitSuccess(response.data.message || (isEdit ? 'Employee updated successfully' : 'Employee added successfully'));
       setTimeout(() => {
         onClose();
-        if (!isEdit) navigate('/employees');
+        // Removed: if (!isEdit) navigate('/employees');
       }, 2000);
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'An error occurred';

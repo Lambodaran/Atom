@@ -1,16 +1,46 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
 const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [username, setUsername] = useState('Admin'); // Default to 'Admin'
+  const [username, setUsername] = useState('Admin');
+  const [photo, setPhoto] = useState(null); // Store profile photo URL
 
   const navigate = useNavigate();
 
+  // Fetch username and photo from API
+  const fetchUsername = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${apiBaseUrl}/auth/profile/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200) {
+        const data = response.data;
+        setUsername(data.username || 'Admin');
+        setPhoto(data.photo || null); // Set photo URL or null
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error.response?.data || error.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsername();
+  }, []);
+
   const handleSignOut = () => {
     console.log("Sign out button clicked");
-    localStorage.removeItem("user");
+    localStorage.removeItem("access_token");
     setIsProfileOpen(false);
     navigate("/login");
   };
@@ -27,19 +57,34 @@ const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
       }
     };
 
-    // Simulate fetching username from localStorage or context (e.g., after login)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUsername(userData.username || 'Admin');
-    }
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProfileOpen]);
 
   const toggleSearch = () => {
     setSearchOpen(!searchOpen);
+  };
+
+  // Render profile picture or default initial
+  const renderProfilePicture = () => {
+    if (photo) {
+      return (
+        <img
+          src={photo}
+          alt="Profile"
+          className="w-8 h-8 rounded-full object-cover"
+          onError={(e) => {
+            e.target.onerror = null;
+            setPhoto(null); // Fallback to default on error
+          }}
+        />
+      );
+    }
+    return (
+      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+        {username.charAt(0).toUpperCase()}
+      </div>
+    );
   };
 
   return (
@@ -183,9 +228,7 @@ const Navbar = ({ toggleSidebar, isMobile, sidebarOpen }) => {
             aria-label="User profile"
           >
             {!isMobile && <span className="text-gray-700">{username}</span>}
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-              {username.charAt(0).toUpperCase()}
-            </div>
+            {renderProfilePicture()}
           </button>
 
           {/* Profile Dropdown */}

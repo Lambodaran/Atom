@@ -2,28 +2,22 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Edit, Trash2, Search, ChevronDown, MoreVertical, Download, Upload } from 'lucide-react';
-import EmployeeForm from '../Dashboard/Forms/EmployeeForm'; // Assuming EmployeeForm.jsx is in the same directory
+import EmployeeForm from '../Dashboard/Forms/EmployeeForm';
 import { useNavigate } from 'react-router-dom';
 
-
-// Fallback mock data (for debugging if API fails)
-const mockEmployees = [
-  { id: 1, email: 'john.doe@example.com', username: 'johndoe', name: 'John Doe' },
-  { id: 2, email: 'jane.smith@example.com', username: 'janesmith', name: 'Jane Smith' },
-];
-
-const apiBaseUrl = import.meta.env.VITE_BASE_API;
+const apiBaseUrl = import.meta.env.VITE_BASE_API; // http://localhost:8000
 
 const Employees = () => {
-  // State for employees data and loading status
+  // State for employees data and loading/error status
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const navigate = useNavigate();
 
   // State for filters
   const [filters, setFilters] = useState({
-    search: '', // Adjusted to search by username or email
+    search: '',
   });
 
   // State for modals
@@ -39,20 +33,22 @@ const Employees = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('access_token');
         if (!token) {
           toast.error('You must be logged in to view employees.');
+          setTimeout(() => navigate('/login'), 2000);
           setLoading(false);
           return;
         }
 
-        console.log('Fetching employees with token:', token); // Debug log
-        const response = await axios.get(`${apiBaseUrl}/auth/employees/`, { // Adjust URL to your backend
+        console.log('Fetching employees with token:', token.substring(0, 10) + '...');
+        const response = await axios.get(`${apiBaseUrl}/auth/employees/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        console.log('API response:', response.data); // Debug log
+        console.log('API response:', response.data);
         if (Array.isArray(response.data)) {
           setEmployees(response.data);
         } else {
@@ -60,10 +56,16 @@ const Employees = () => {
         }
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching employees:', error.response || error); // Debug log
-        toast.error(`Failed to fetch employees: ${error.response?.data?.error || error.message}`);
-        // Fallback to mock data for debugging
-        setEmployees(mockEmployees);
+        console.error('Error fetching employees:', error.response || error);
+        const errorMsg = error.response?.data?.error || error.message || 'Failed to fetch employees';
+        toast.error(errorMsg);
+        if (error.response?.status === 401) {
+          setError('Session expired or invalid token. Redirecting to login...');
+          setTimeout(() => navigate('/login'), 2000);
+        } else {
+          setError(errorMsg);
+        }
+        setEmployees([]);
         setLoading(false);
       }
     };
@@ -84,9 +86,10 @@ const Employees = () => {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('access_token');
       if (!token) {
         toast.error('You must be logged in to import employees.');
+        setTimeout(() => navigate('/login'), 2000);
         return;
       }
 
@@ -106,7 +109,12 @@ const Employees = () => {
       });
       setEmployees(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to import employees.');
+      const errorMsg = error.response?.data?.error || 'Failed to import employees';
+      toast.error(errorMsg);
+      if (error.response?.status === 401) {
+        setError('Session expired or invalid token. Redirecting to login...');
+        setTimeout(() => navigate('/login'), 2000);
+      }
       document.getElementById('options-dropdown').classList.add('hidden');
     }
   };
@@ -148,9 +156,10 @@ const Employees = () => {
   const handleDeleteEmployee = async (id) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('access_token');
         if (!token) {
           toast.error('You must be logged in to delete employees.');
+          setTimeout(() => navigate('/login'), 2000);
           return;
         }
 
@@ -162,7 +171,12 @@ const Employees = () => {
         setCurrentPage(1);
         toast.success('Employee deleted successfully.');
       } catch (error) {
-        toast.error(error.response?.data?.error || 'Failed to delete employee.');
+        const errorMsg = error.response?.data?.error || 'Failed to delete employee';
+        toast.error(errorMsg);
+        if (error.response?.status === 401) {
+          setError('Session expired or invalid token. Redirecting to login...');
+          setTimeout(() => navigate('/login'), 2000);
+        }
       }
     }
   };
@@ -176,9 +190,10 @@ const Employees = () => {
 
     if (window.confirm(`Are you sure you want to delete ${selectedEmployees.length} selected employees?`)) {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('access_token');
         if (!token) {
           toast.error('You must be logged in to delete employees.');
+          setTimeout(() => navigate('/login'), 2000);
           return;
         }
 
@@ -191,7 +206,12 @@ const Employees = () => {
         setSelectedEmployees([]);
         toast.success(`${selectedEmployees.length} employees deleted successfully.`);
       } catch (error) {
-        toast.error(error.response?.data?.error || 'Failed to delete selected employees.');
+        const errorMsg = error.response?.data?.error || 'Failed to delete selected employees';
+        toast.error(errorMsg);
+        if (error.response?.status === 401) {
+          setError('Session expired or invalid token. Redirecting to login...');
+          setTimeout(() => navigate('/login'), 2000);
+        }
       }
     }
   };
@@ -199,9 +219,10 @@ const Employees = () => {
   // Handle export to Excel
   const handleExport = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('access_token');
       if (!token) {
         toast.error('You must be logged in to export employees.');
+        setTimeout(() => navigate('/login'), 2000);
         return;
       }
 
@@ -222,7 +243,12 @@ const Employees = () => {
       toast.success('Employees exported successfully.');
       document.getElementById('options-dropdown').classList.add('hidden');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to export employees.');
+      const errorMsg = error.response?.data?.error || 'Failed to export employees';
+      toast.error(errorMsg);
+      if (error.response?.status === 401) {
+        setError('Session expired or invalid token. Redirecting to login...');
+        setTimeout(() => navigate('/login'), 2000);
+      }
       document.getElementById('options-dropdown').classList.add('hidden');
     }
   };
@@ -406,6 +432,12 @@ const Employees = () => {
                   </div>
                 </td>
               </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan="5" className="px-6 py-4 text-center text-red-500">
+                  Error: {error}
+                </td>
+              </tr>
             ) : currentEmployees.length > 0 ? (
               currentEmployees.map(emp => (
                 <tr key={emp.id}>
@@ -482,6 +514,10 @@ const Employees = () => {
         {loading ? (
           <div className="flex justify-center items-center py-8 bg-white rounded-lg shadow">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#243158]"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-lg shadow p-6 text-center text-red-500">
+            Error: {error}
           </div>
         ) : currentEmployees.length > 0 ? (
           currentEmployees.map(emp => (
@@ -571,14 +607,26 @@ const Employees = () => {
             // Refresh employee list after modal close
             const fetchEmployees = async () => {
               try {
-                const token = localStorage.getItem('accessToken');
+                const token = localStorage.getItem('access_token');
+                if (!token) {
+                  toast.error('You must be logged in to view employees.');
+                  setTimeout(() => navigate('/login'), 2000);
+                  return;
+                }
                 const response = await axios.get(`${apiBaseUrl}/auth/employees/`, {
                   headers: { Authorization: `Bearer ${token}` },
                 });
                 setEmployees(Array.isArray(response.data) ? response.data : []);
               } catch (error) {
-                toast.error(error.response?.data?.error || 'Failed to refresh employees.');
-                setEmployees(mockEmployees); // Fallback to mock data
+                const errorMsg = error.response?.data?.error || 'Failed to refresh employees';
+                toast.error(errorMsg);
+                setEmployees([]);
+                if (error.response?.status === 401) {
+                  setError('Session expired or invalid token. Redirecting to login...');
+                  setTimeout(() => navigate('/login'), 2000);
+                } else {
+                  setError(errorMsg);
+                }
               }
             };
             fetchEmployees();
@@ -595,14 +643,26 @@ const Employees = () => {
             // Refresh employee list
             const fetchEmployees = async () => {
               try {
-                const token = localStorage.getItem('accessToken');
+                const token = localStorage.getItem('access_token');
+                if (!token) {
+                  toast.error('You must be logged in to view employees.');
+                  setTimeout(() => navigate('/login'), 2000);
+                  return;
+                }
                 const response = await axios.get(`${apiBaseUrl}/auth/employees/`, {
                   headers: { Authorization: `Bearer ${token}` },
                 });
                 setEmployees(Array.isArray(response.data) ? response.data : []);
               } catch (error) {
-                toast.error(error.response?.data?.error || 'Failed to refresh employees.');
-                setEmployees(mockEmployees); // Fallback to mock data
+                const errorMsg = error.response?.data?.error || 'Failed to refresh employees';
+                toast.error(errorMsg);
+                setEmployees([]);
+                if (error.response?.status === 401) {
+                  setError('Session expired or invalid token. Redirecting to login...');
+                  setTimeout(() => navigate('/login'), 2000);
+                } else {
+                  setError(errorMsg);
+                }
               }
             };
             fetchEmployees();

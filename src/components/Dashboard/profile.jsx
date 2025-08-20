@@ -19,6 +19,8 @@ const Profile = () => {
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [showFullScreen, setShowFullScreen] = useState(false);
 
   const fetchProfile = async () => {
     const token = localStorage.getItem('access_token');
@@ -37,7 +39,7 @@ const Profile = () => {
         setUser(data);
         setEditValues(data);
         if (data.photo) {
-          setPhotoPreview(data.photo); // ✅ full URL directly
+          setPhotoPreview(data.photo);
         }
       }
     } catch (error) {
@@ -54,7 +56,7 @@ const Profile = () => {
     if (!isEditing) {
       setEditValues(user);
       setSelectedFile(null);
-      setPhotoPreview(user.photo ? user.photo : null); // ✅ full URL directly
+      setPhotoPreview(user.photo ? user.photo : null);
     }
   };
 
@@ -104,7 +106,7 @@ const Profile = () => {
       );
 
       if (response.status === 200) {
-        await fetchProfile(); // Refresh the profile data
+        await fetchProfile();
         setIsEditing(false);
         setSelectedFile(null);
       }
@@ -119,16 +121,30 @@ const Profile = () => {
 
     if (photoUrl) {
       return (
-        <img
-          src={photoUrl} // ✅ already a full URL
-          alt="Profile"
-          className="w-24 h-24 rounded-full object-cover border-2 border-blue-500"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = '';
-            setPhotoPreview(null);
-          }}
-        />
+        <div className="relative">
+          <div
+            className="w-24 h-24 rounded-full overflow-hidden border-2 border-blue-500 cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-110"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+            onClick={() => setShowFullScreen(true)}
+          >
+            <img
+              src={photoUrl}
+              alt="Profile"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '';
+                setPhotoPreview(null);
+              }}
+            />
+          </div>
+          {isHovering && (
+            <div className="absolute -top-10 -left-10 bg-black bg-opacity-80 text-white text-xs px-2 py-1 rounded-md pointer-events-none transition-opacity duration-300">
+              Click to enlarge
+            </div>
+          )}
+        </div>
       );
     } else {
       const initial = (user.username || 'G').charAt(0).toUpperCase();
@@ -142,6 +158,27 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      {showFullScreen && user.photo && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+          onClick={() => setShowFullScreen(false)}
+        >
+          <div className="max-w-4xl max-h-full p-4">
+            <img
+              src={user.photo}
+              alt="Profile Preview"
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </div>
+          <button
+            className="absolute top-4 right-4 text-white text-3xl bg-black bg-opacity-50 rounded-full w-10 h-10 flex items-center justify-center"
+            onClick={() => setShowFullScreen(false)}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+      
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
         <div className="flex justify-center mb-4">
           {renderProfilePicture()}

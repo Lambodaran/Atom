@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import AuthImage from '../../assets/auth.jpg';
 
@@ -7,11 +7,12 @@ const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
 const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Added for confirm password
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
-    mobileNumber: '',
+    password_confirm: '', // Added confirm password to state
     terms: false,
   });
   const [error, setError] = useState(null);
@@ -45,7 +46,7 @@ const SignupPage = () => {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          password_confirm: formData.password,
+          password_confirm: formData.password_confirm, // Include confirm password
         }),
       });
 
@@ -57,7 +58,6 @@ const SignupPage = () => {
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('mobileNumber', formData.mobileNumber);
 
       navigate('/dashboard');
     } catch (err) {
@@ -159,27 +159,38 @@ const SignupPage = () => {
               </div>
             </div>
 
-            {/* Mobile Number Field */}
-            {/* <div>
-              <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                Mobile Number
+            {/* Confirm Password Field */}
+            <div>
+              <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
+                  <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  type="tel"
-                  id="mobileNumber"
-                  name="mobileNumber"
-                  value={formData.mobileNumber}
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  id="password_confirm"
+                  name="password_confirm"
+                  value={formData.password_confirm}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="+1 234 567 8900"
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
+                </button>
               </div>
-            </div> */}
+            </div>
 
             {/* Terms Checkbox */}
             <div className="flex items-center">
@@ -216,9 +227,9 @@ const SignupPage = () => {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
-             <Link to="/login" className="text-black font-bold rounded-lg p-2">
-              Sign In
-            </Link>
+              <Link to="/login" className="text-black font-bold rounded-lg p-2">
+                Sign In
+              </Link>
             </p>
           </div>
         </div>

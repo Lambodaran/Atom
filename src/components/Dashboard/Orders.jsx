@@ -24,11 +24,11 @@ const Orders = () => {
             <List className="h-4 w-4" />
             Bulk Actions
           </button>
-          <button className="px-4 py-2 bg-orange-500 text-white rounded-lg shadow-md flex items-center gap-2">
+          <button className="px-4 py-2 bg-[#243158] text-white rounded-lg shadow-md flex items-center gap-2">
             <Download className="h-4 w-4" />
             Export
           </button>
-          <button className="px-4 py-2 bg-orange-500 text-white rounded-lg shadow-md flex items-center gap-2">
+          <button className="px-4 py-2 bg-[#243158] text-white rounded-lg shadow-md flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Create Complaint
           </button>
@@ -80,7 +80,7 @@ const Orders = () => {
           </select>
         </div>
         
-        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg shadow-md flex items-center justify-center gap-2 flex-1 min-w-[150px]">
+        <button className="px-4 py-2 bg-[#243158] text-white rounded-lg shadow-md flex items-center justify-center gap-2 flex-1 min-w-[150px]">
           <Search className="h-4 w-4" />
           Search
         </button>

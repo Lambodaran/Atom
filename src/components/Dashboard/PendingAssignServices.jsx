@@ -47,7 +47,7 @@ const PendingAssignServices = () => {
               <Filter className="h-4 w-4 mr-2" />
               Filters
             </button>
-            <button className="flex items-center bg-orange-600 text-white rounded-md px-3 py-2 text-sm">
+            <button className="flex items-center bg-[#243158] text-white rounded-md px-3 py-2 text-sm">
               <List className="h-4 w-4 mr-2" />
               List View
             </button>
@@ -104,7 +104,7 @@ const PendingAssignServices = () => {
 
         {/* Bulk Actions */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <button className="flex items-center bg-orange-600 text-white rounded-md px-3 py-2 text-sm">
+          <button className="flex items-center bg-[#243158] text-white rounded-md px-3 py-2 text-sm">
             <User className="h-4 w-4 mr-2" />
             Bulk Assign
           </button>
@@ -210,7 +210,7 @@ const PendingAssignServices = () => {
                   <MapPin className="h-4 w-4 mr-1" />
                   View Map
                 </button>
-                <button className="flex items-center bg-orange-600 text-white rounded-md px-3 py-1 text-sm">
+                <button className="flex items-center bg-[#243158] text-white rounded-md px-3 py-1 text-sm">
                   <User className="h-4 w-4 mr-1" />
                   Assign
                 </button>

@@ -48,7 +48,7 @@ const LastMonthOverdue = () => {
               <Filter className="h-4 w-4 mr-2" />
               Filters
             </button>
-            <button className="flex items-center bg-orange-600 text-white rounded-md px-3 py-2 text-sm">
+            <button className="flex items-center bg-[#243158] text-white rounded-md px-3 py-2 text-sm">
               <List className="h-4 w-4 mr-2" />
               List View
             </button>

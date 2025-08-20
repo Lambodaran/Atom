@@ -111,7 +111,7 @@ const DeliveryChallan = () => {
           <button className="bg-gray-200 text-gray-700 px-3 py-2 sm:px-4 sm:py-2 rounded-lg shadow-md hover:bg-gray-300 transition-colors flex items-center justify-center text-sm sm:text-base">
             <Download size={16} className="mr-2" /> Export
           </button>
-          <button className="bg-orange-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center text-sm sm:text-base">
+          <button className="bg-[#243158] text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg shadow-md  transition-colors flex items-center justify-center text-sm sm:text-base">
             <Plus size={16} className="mr-2" /> Create Delivery Challan
           </button>
         </div>

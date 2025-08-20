@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios';
 
+const apiBaseUrl = import.meta.env.VITE_BASE_API;
+
 const Settings = () => {
   const [formData, setFormData] = useState({
     currentPassword: '',
@@ -46,7 +48,7 @@ const Settings = () => {
     try {
       console.log('Sending request with token:', token); // Debug token
       const response = await axios.post(
-        'http://localhost:8000/auth/change-password/', // Replace with your actual API URL
+        `${apiBaseUrl}/auth/change-password/`, // Updated to use apiBaseUrl
         {
           current_password: formData.currentPassword,
           new_password: formData.newPassword,

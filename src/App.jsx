@@ -16,7 +16,7 @@ import DeliveryChallan from './components/Dashboard/DeliveryChallan';
 import Quotation from './components/Dashboard/Quotation';
 import Orders from './components/Dashboard/Orders';
 import Invoice from './components/Dashboard/Invoice';
-import PaymentRecieved from './components/Dashboard/PaymentRecieved';
+import PaymentRecieved from './components/Dashboard/PaymentReceived';
 import RecurringInvoices from './components/Dashboard/RecurringInvoices';
 import CreditNotes from './components/Dashboard/CreditNotes';
 import RoutineServices from './components/Dashboard/RoutineServices';

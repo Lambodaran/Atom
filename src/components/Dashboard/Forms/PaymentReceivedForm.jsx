@@ -7,7 +7,7 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
     date: '',
     paymentNumber: '',
     siteName: '',
-    customer: '', // Changed from customerName to customer to match backend
+    customer: '',
     invoiceNumber: '',
     mode: 'CASH',
     amount: '',
@@ -18,7 +18,6 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Centralized Axios instance with Bearer token
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -30,7 +29,6 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
     });
   };
 
-  // Fetch customer and invoice data
   const fetchData = async (endpoint, setter, retryCount = 2) => {
     const axiosInstance = createAxiosInstance();
     if (!axiosInstance) return;
@@ -61,7 +59,17 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const updatedFormData = { ...prev, [name]: value };
+      if (name === 'customer' && value) {
+        const selectedCustomer = customers.find((cust) => cust.id === parseInt(value));
+        if (selectedCustomer) {
+          updatedFormData.siteName = selectedCustomer.site_name || '';
+        }
+        updatedFormData.invoiceNumber = '';
+      }
+      return updatedFormData;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -69,7 +77,6 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
     setError(null);
     setIsSubmitting(true);
 
-    // Validate customer selection
     if (!formData.customer) {
       setError('Please select a customer.');
       setIsSubmitting(false);
@@ -80,14 +87,32 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
       const axiosInstance = createAxiosInstance();
       if (!axiosInstance) throw new Error('Authentication failed');
 
-      const response = await axiosInstance.post(`${import.meta.env.VITE_BASE_API}/sales/add-payment-received/`, formData);
+      const selectedInvoiceId = formData.invoiceNumber 
+        ? invoices.find(inv => inv.reference_id === formData.invoiceNumber)?.id 
+        : null;
 
-      if (!response.data || !response.data.success) {
+      const payload = {
+        customer: parseInt(formData.customer),
+        invoice: selectedInvoiceId ? parseInt(selectedInvoiceId) : null,
+        amount: parseFloat(formData.amount) || 0,
+        date: formData.date,
+        payment_type: formData.mode === 'CASH' ? 'cash' : 'bank_transfer',
+        tax_deducted: 'no'
+      };
+      console.log('Sending payload:', payload); // Debug payload
+
+      const response = await axiosInstance.post(`${import.meta.env.VITE_BASE_API}/sales/add-payment-received/`, payload);
+
+      if (!response.data || !response.data.id) {
         throw new Error(response.data?.error || 'Failed to add payment');
       }
 
       const result = response.data;
-      onPaymentAdded(result);
+      if (typeof onPaymentAdded === 'function') {
+        onPaymentAdded(result);
+      } else {
+        console.warn('onPaymentAdded is not a function. Please ensure it is passed correctly.');
+      }
       onClose();
       setFormData({
         date: '',
@@ -110,7 +135,7 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Add Payment Received</h2>
@@ -155,14 +180,14 @@ const PaymentReceivedForm = ({ isOpen, onClose, onPaymentAdded }) => {
                 value={formData.siteName}
                 onChange={handleChange}
                 className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                readOnly
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
               <select
-                name="customer" // Changed to 'customer' to match formData
+                name="customer"
                 value={formData.customer}
                 onChange={handleChange}
                 className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"

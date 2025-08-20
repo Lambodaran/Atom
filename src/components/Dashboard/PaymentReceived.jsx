@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, Trash2 } from 'lucide-react';
 import PaymentReceivedForm from '../Dashboard/Forms/PaymentReceivedForm';
 import axios from 'axios';
 
@@ -11,7 +11,6 @@ const PaymentReceived = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [payments, setPayments] = useState([]);
 
-  // Centralized Axios instance with Bearer token
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -23,7 +22,6 @@ const PaymentReceived = () => {
     });
   };
 
-  // Fetch payment data
   const fetchPayments = async (retryCount = 2) => {
     const axiosInstance = createAxiosInstance();
     if (!axiosInstance) return;
@@ -32,14 +30,15 @@ const PaymentReceived = () => {
       const response = await axiosInstance.get(`${import.meta.env.VITE_BASE_API}/sales/payment-received-list/`);
       if (!response.data) throw new Error('No data received');
       setPayments(response.data.map(payment => ({
+        id: payment.id,
         date: payment.date,
         paymentNumber: payment.payment_number,
-        siteName: '', // Not in response, default to empty
+        siteName: payment.site_name || '', // Add siteName if available
         customerName: payment.customer_name,
-        invoiceNumber: payment.invoice_reference || '', // Fallback if null
+        invoiceNumber: payment.invoice_reference || '',
         mode: payment.payment_type,
         amount: `INR ${parseFloat(payment.amount).toFixed(2)}`,
-        unusedAmount: '' // Not in response, default to empty
+        unusedAmount: payment.unused_amount || '' // Add unusedAmount if available
       })));
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -50,6 +49,26 @@ const PaymentReceived = () => {
         setTimeout(() => fetchPayments(retryCount - 1), 2000);
       } else {
         console.error(`Failed to fetch payments.`);
+      }
+    }
+  };
+
+  const handleDeletePayment = async (paymentId) => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    if (window.confirm('Are you sure you want to delete this payment?')) {
+      try {
+        await axiosInstance.delete(`${import.meta.env.VITE_BASE_API}/sales/delete-payment-received/${paymentId}/`);
+        setPayments((prev) => prev.filter((payment) => payment.id !== paymentId));
+        console.log('Payment deleted successfully');
+      } catch (error) {
+        console.error('Error deleting payment:', error);
+        if (error.response?.status === 401) {
+          console.error('Session expired. Please log in again.');
+        } else {
+          console.error('Failed to delete payment.');
+        }
       }
     }
   };
@@ -65,14 +84,15 @@ const PaymentReceived = () => {
 
   const handlePaymentAdded = (newPayment) => {
     setPayments((prev) => [...prev, {
+      id: newPayment.id,
       date: newPayment.date,
-      paymentNumber: newPayment.paymentNumber,
-      siteName: newPayment.siteName || '',
-      customerName: newPayment.customerName,
-      invoiceNumber: newPayment.invoiceNumber || '',
-      mode: newPayment.mode,
+      paymentNumber: newPayment.payment_number || newPayment.paymentNumber,
+      siteName: newPayment.site_name || newPayment.siteName || '',
+      customerName: newPayment.customer_name || newPayment.customerName,
+      invoiceNumber: newPayment.invoice_reference || newPayment.invoiceNumber || '',
+      mode: newPayment.payment_type || newPayment.mode,
       amount: `INR ${parseFloat(newPayment.amount).toFixed(2)}`,
-      unusedAmount: newPayment.unusedAmount || ''
+      unusedAmount: newPayment.unused_amount || newPayment.unusedAmount || ''
     }]);
   };
 
@@ -158,7 +178,7 @@ const PaymentReceived = () => {
         </div>
         
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="grid grid-cols-7 bg-gray-200 p-3 text-sm font-semibold text-gray-700 border-b border-gray-300">
+          <div className="grid grid-cols-8 bg-gray-200 p-3 text-sm font-semibold text-gray-700 border-b border-gray-300">
             <div className="p-3 text-center">DATE</div>
             <div className="p-3 text-center">PAYMENT NUMBER</div>
             <div className="p-3 text-left">SITE NAME</div>
@@ -166,9 +186,10 @@ const PaymentReceived = () => {
             <div className="p-3 text-center">MODE</div>
             <div className="p-3 text-right">AMOUNT</div>
             <div className="p-3 text-right">UNUSED AMOUNT</div>
+            <div className="p-3 text-center">ACTION</div>
           </div>
           {payments.map((payment, index) => (
-            <div key={index} className="grid grid-cols-7 p-3 border-b border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
+            <div key={index} className="grid grid-cols-8 p-3 border-b border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
               <div className="p-3 text-center">{payment.date}</div>
               <div className="p-3 text-center">{payment.paymentNumber}</div>
               <div className="p-3 text-left flex flex-col">
@@ -179,6 +200,14 @@ const PaymentReceived = () => {
               <div className="p-3 text-center">{payment.mode}</div>
               <div className="p-3 text-right">{payment.amount}</div>
               <div className="p-3 text-right">{payment.unusedAmount || '-'}</div>
+              <div className="p-3 text-center">
+                <button
+                  onClick={() => handleDeletePayment(payment.id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           ))}
         </div>

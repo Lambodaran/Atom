@@ -15,7 +15,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const DashboardPage = () => {
-  const [selectedMonth, setSelectedMonth] = useState('October');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
   const [amcData, setAmcData] = useState([]);
   const [customerData, setCustomerData] = useState([]);
   const [complaintData, setComplaintData] = useState([]);
@@ -64,7 +64,9 @@ const DashboardPage = () => {
           }),
           fetchWithAuth(`${import.meta.env.VITE_BASE_API}/sales/customer-list/`).catch(e => {
             console.error('Error fetching customer data:', e);
-            setError(prev => prev ? `${prev}, Customer data failed` : 'Customer data failed');
+            setError(prev => prev ? `${prev}, Customer data
+
+ failed` : 'Customer data failed');
             return [];
           }),
           fetchWithAuth(`${import.meta.env.VITE_BASE_API}/auth/complaint-list/`).catch(e => {
@@ -83,6 +85,16 @@ const DashboardPage = () => {
         setCustomerData(Array.isArray(customerRes) ? customerRes : []);
         setComplaintData(Array.isArray(complaintRes) ? complaintRes : []);
         setInvoiceData(Array.isArray(invoiceRes) ? invoiceRes : []);
+
+        // Set selectedMonth to the month of the latest complaint
+        if (Array.isArray(complaintRes) && complaintRes.length > 0) {
+          const latestComplaint = complaintRes.reduce((latest, current) =>
+            new Date(current.date) > new Date(latest.date) ? current : latest
+          );
+          setSelectedMonth(
+            new Date(latestComplaint.date).toLocaleString('default', { month: 'long' })
+          );
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load some or all dashboard data. Please check your authentication and try again.');
@@ -117,42 +129,42 @@ const DashboardPage = () => {
         value: amcDue, 
         change: '8.5% Up', 
         trend: 'up', 
-        icon: <User className="w-6 h-6 text-purple-500" /> 
+        icon: <User className="w-5 h-5 md:w-6 md:h-6 text-purple-500" /> 
       },
       { 
         title: 'Income', 
         value: income, 
         change: '1.3% Up', 
         trend: 'up', 
-        icon: <DollarSign className="w-6 h-6 text-yellow-500" /> 
+        icon: <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-yellow-500" /> 
       },
       { 
         title: 'Open Complaints', 
         value: `${openComplaints}/${totalComplaints}`, 
         change: '4.3% Down', 
         trend: 'down', 
-        icon: <AlertTriangle className="w-6 h-6 text-green-500" /> 
+        icon: <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-green-500" /> 
       },
       { 
         title: 'Open Invoice', 
         value: `${openInvoices}/${totalInvoices}`, 
         change: '1.8% Up', 
         trend: 'up', 
-        icon: <FileText className="w-6 h-6 text-orange-500" /> 
+        icon: <FileText className="w-5 h-5 md:w-6 md:h-6 text-orange-500" /> 
       },
       { 
         title: 'Customer', 
         value: customerCount, 
         change: '8.5% Up', 
         trend: 'up', 
-        icon: <User className="w-6 h-6 text-purple-500" /> 
+        icon: <User className="w-5 h-5 md:w-6 md:h-6 text-purple-500" /> 
       },
       { 
         title: 'Complaint', 
         value: complaintCount, 
         change: '1.3% Up', 
         trend: 'up', 
-        icon: <AlertTriangle className="w-6 h-6 text-yellow-500" /> 
+        icon: <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-yellow-500" /> 
       },
     ];
   };
@@ -168,7 +180,7 @@ const DashboardPage = () => {
         borderColor: 'rgb(0, 149, 255)',
         backgroundColor: 'rgba(0, 149, 255, 0.2)',
         tension: 0.4,
-        pointRadius: 4,
+        pointRadius: 3,
         pointBackgroundColor: 'rgb(0, 149, 255)',
       },
       {
@@ -177,7 +189,7 @@ const DashboardPage = () => {
         borderColor: 'rgb(0, 255, 149)',
         backgroundColor: 'rgba(0, 255, 149, 0.2)',
         tension: 0.4,
-        pointRadius: 4,
+        pointRadius: 3,
         pointBackgroundColor: 'rgb(0, 255, 149)',
       },
     ],
@@ -187,15 +199,40 @@ const DashboardPage = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: { 
+        display: true,
+        position: 'top',
+        labels: {
+          font: {
+            size: 10, // Smaller font size for mobile
+          },
+        },
+      },
       title: { display: false },
+      tooltip: {
+        bodyFont: {
+          size: 10, // Smaller tooltip font for mobile
+        },
+      },
     },
     scales: {
-      x: { grid: { display: false } },
+      x: { 
+        grid: { display: false },
+        ticks: {
+          font: {
+            size: 10, // Smaller font size for mobile
+          },
+        },
+      },
       y: {
         beginAtZero: true,
         max: 100,
-        ticks: { stepSize: 25 },
+        ticks: { 
+          stepSize: 25,
+          font: {
+            size: 10, // Smaller font size for mobile
+          },
+        },
         grid: { color: 'rgba(0, 0, 0, 0.1)' },
       },
     },
@@ -203,16 +240,16 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
-        <div className="text-lg font-medium text-gray-600">Loading dashboard data...</div>
+      <div className="p-2 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
+        <div className="text-base sm:text-lg font-medium text-gray-600">Loading dashboard data...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
-        <div className="text-lg font-medium text-red-500">{error}</div>
+      <div className="p-2 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
+        <div className="text-base sm:text-lg font-medium text-red-500">{error}</div>
       </div>
     );
   }
@@ -225,28 +262,28 @@ const DashboardPage = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
+    <div className="p-2 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 min-h-screen">
+      <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Dashboard</h1>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white p-4 rounded-lg shadow-sm flex items-center space-x-4 border border-gray-100">
+          <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm flex items-center space-x-3 sm:space-x-4 border border-gray-100">
             {stat.icon}
             <div>
-              <h3 className="text-gray-500 font-medium text-sm">{stat.title}</h3>
-              <div className="text-xl font-bold my-1">{stat.value}</div>
-              <div className={`text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+              <h3 className="text-gray-500 font-medium text-xs sm:text-sm">{stat.title}</h3>
+              <div className="text-lg sm:text-xl font-bold my-1">{stat.value}</div>
+              <div className={`text-[10px] sm:text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
                 {stat.change} {stat.trend === 'up' ? '↑' : '↓'} from {index < 2 ? 'yesterday' : index < 4 ? 'yesterday' : 'past week'}
               </div>
             </div>
           </div>
         ))}
-        <div className="bg-white p-4 rounded-lg shadow-sm col-span-2 sm:col-span-1 lg:col-span-2 flex items-center space-x-4 border border-gray-100">
-          <Wrench className="w-6 h-6 text-gray-400" />
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm col-span-1 sm:col-span-1 lg:col-span-2 flex items-center space-x-3 sm:space-x-4 border border-gray-100">
+          <Wrench className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
           <div>
-            <h3 className="text-gray-500 font-medium text-sm">AMC Renew in Progress</h3>
-            <div className="text-xl font-bold my-1">
+            <h3 className="text-gray-500 font-medium text-xs sm:text-sm">AMC Renew in Progress</h3>
+            <div className="text-lg sm:text-xl font-bold my-1">
               {amcData.filter(amc => amc.status === "Pending").length} AMCs pending renewal
             </div>
           </div>
@@ -254,23 +291,23 @@ const DashboardPage = () => {
       </div>
 
       {/* Graph Placeholder */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-          <h3 className="text-gray-500 font-medium text-sm">Weekly Performance</h3>
-          <div className="h-64">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
+          <h3 className="text-gray-500 font-medium text-xs sm:text-sm">Weekly Performance</h3>
+          <div className="h-48 sm:h-64">
             <Line data={graphData} options={graphOptions} />
           </div>
         </div>
       </div>
 
       {/* Complaints Section */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
-          <h3 className="text-gray-500 font-medium text-sm">New Complaints</h3>
+      <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4">
+          <h3 className="text-gray-500 font-medium text-xs sm:text-sm">New Complaints</h3>
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 mt-2 sm:mt-0 w-full sm:w-auto"
+            className="border border-gray-300 rounded px-2 py-1 mt-2 sm:mt-0 w-full sm:w-auto text-sm"
           >
             {months.map(month => (
               <option key={month} value={month}>{month}</option>
@@ -278,34 +315,34 @@ const DashboardPage = () => {
           </select>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[600px] sm:min-w-0">
             <thead>
               <tr className="bg-gray-100">
-                <th className="p-2 text-xs">Print</th>
-                <th className="p-2 text-xs">Subject</th>
-                <th className="p-2 text-xs">Assigned to</th>
-                <th className="p-2 text-xs">Status</th>
-                <th className="p-2 text-xs">Created</th>
-                <th className="p-2 text-xs">Solution</th>
-                <th className="p-2 text-xs">Remark</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Print</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Subject</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Assigned to</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Status</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Created</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Solution</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Remark</th>
               </tr>
             </thead>
             <tbody>
               {filteredComplaints.map((complaint) => (
                 <tr key={complaint.id} className="border-t">
-                  <td className="p-2"></td>
-                  <td className="p-2 text-sm">{complaint.subject}</td>
-                  <td className="p-2 text-sm">{complaint.assign_to_name}</td>
-                  <td className="p-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
+                  <td className="p-1 sm:p-2"></td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.subject}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.assign_to_name}</td>
+                  <td className="p-1 sm:p-2">
+                    <span className={`px-1 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs ${
                       complaint.solution ? 'text-green-500 bg-green-100' : 'text-yellow-500 bg-yellow-100'
                     }`}>
                       {complaint.solution ? 'Closed' : 'Open'}
                     </span>
                   </td>
-                  <td className="p-2 text-sm">{new Date(complaint.date).toLocaleString()}</td>
-                  <td className="p-2 text-sm">{complaint.solution || '-'}</td>
-                  <td className="p-2 text-sm">{complaint.technician_remark || '-'}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{new Date(complaint.date).toLocaleString()}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.solution || '-'}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.technician_remark || '-'}</td>
                 </tr>
               ))}
             </tbody>

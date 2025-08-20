@@ -10,16 +10,26 @@ const RequisitionForm = ({
   apiBaseUrl,
   dropdownOptions = {},
 }) => {
+  // Map initial amcId to amcname or fallback to reference_id
+  const getInitialAmcName = (amcId, options) => {
+    if (!amcId) return '';
+    const selectedAmc = options.find(option => option.id === amcId);
+    return selectedAmc ? selectedAmc.value : '';
+  };
+
   // Form state
-  const [requisition, setRequisition] = useState({
-    date: new Date().toISOString().split('T')[0], // Default to today's date
-    item: '',
-    qty: '',
-    site: '',
-    amcId: '',
-    service: '',
-    employee: '',
-    ...initialData,
+  const [requisition, setRequisition] = useState(() => {
+    const initialAmcName = getInitialAmcName(initialData.amcId, []);
+    return {
+      date: new Date().toISOString().split('T')[0], // Default to today's date
+      item: initialData.item || '',
+      qty: initialData.qty || '',
+      site: initialData.site || '',
+      amcId: initialAmcName, // Use amcname or fallback for display
+      service: initialData.service || '',
+      employee: initialData.employee || '',
+      ...initialData,
+    };
   });
 
   // State for existing dropdown options
@@ -59,7 +69,7 @@ const RequisitionForm = ({
       const response = await axiosInstance.get(`${apiBaseUrl}/${endpoint}`);
 
       // Log API response for debugging
-      console.log(`Fetched ${field} options:`, response.data);
+      console.log(`Fetched ${field} options raw response:`, response.data);
 
       // Map API response to dropdown options
       let mappedOptions = [];
@@ -67,12 +77,23 @@ const RequisitionForm = ({
         mappedOptions = response.data.map(item => ({
           id: item.id,
           value: item.name,
+          item_number: item.item_number,
+          name: item.name
         }));
       } else if (field === 'amcId') {
-        mappedOptions = response.data.map(amc => ({
-          id: amc.id,
-          value: amc.reference_id,
-        }));
+        if (!Array.isArray(response.data)) {
+          console.error('Unexpected AMC data format:', response.data);
+          mappedOptions = [];
+        } else {
+          mappedOptions = response.data.map(amc => {
+            console.log('Mapping AMC:', amc); // Debug individual AMC objects
+            return {
+              id: amc.id,
+              value: amc.amcname || amc.reference_id || 'Unnamed AMC', // Fallback to reference_id
+              amcname: amc.amcname || amc.reference_id || 'Unnamed AMC' // Store for submission
+            };
+          });
+        }
       } else if (field === 'employee') {
         mappedOptions = response.data.map(emp => ({
           id: emp.id,
@@ -82,16 +103,29 @@ const RequisitionForm = ({
         mappedOptions = response.data.map(customer => ({
           id: customer.id,
           value: customer.site_name,
+          reference_id: customer.reference_id,
+          site_name: customer.site_name
         }));
       }
 
       // Log mapped options for debugging
       console.log(`Mapped ${field} options:`, mappedOptions);
 
-      setExistingOptions((prev) => ({
-        ...prev,
-        [field]: mappedOptions,
-      }));
+      setExistingOptions((prev) => {
+        const updatedOptions = {
+          ...prev,
+          [field]: mappedOptions,
+        };
+        // Update amcId in requisition state if initialData has an amcId
+        if (field === 'amcId' && initialData.amcId) {
+          const amcName = getInitialAmcName(initialData.amcId, mappedOptions);
+          setRequisition(prevState => ({
+            ...prevState,
+            amcId: amcName,
+          }));
+        }
+        return updatedOptions;
+      });
 
       // Update dropdownOptions if setter exists
       const optionKey = {
@@ -108,11 +142,11 @@ const RequisitionForm = ({
         console.warn(`Setter for ${optionKey} not provided in dropdownOptions`);
       }
     } catch (error) {
-      console.error(`Error fetching ${field}:`, error);
+      console.error(`Error fetching ${field}:`, error.response ? error.response.data : error.message);
       if (retryCount > 0 && error.code === 'ERR_NETWORK') {
         setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
       } else {
-        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}.`);
+        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}. Check console for details.`);
       }
     }
   };
@@ -148,70 +182,61 @@ const RequisitionForm = ({
     if (!axiosInstance) return;
 
     try {
-      // Validate selections
-      const selectedItem = existingOptions.item.find(
-        (item) => item.value === requisition.item
-      );
-      const itemData = selectedItem ? { name: selectedItem.value } : null;
+      const selectedItem = existingOptions.item.find((item) => item.value === requisition.item);
+      const selectedEmployee = existingOptions.employee.find((emp) => emp.value === requisition.employee);
+      const selectedSite = existingOptions.site.find((site) => site.value === requisition.site);
+      const selectedAmc = existingOptions.amcId.find((amc) => amc.value === requisition.amcId);
 
-      const selectedEmployee = existingOptions.employee.find(
-        (emp) => emp.value === requisition.employee
-      );
-      const employeeData = selectedEmployee ? { id: selectedEmployee.id } : null;
-
-      const selectedSite = existingOptions.site.find(
-        (site) => site.value === requisition.site
-      );
-      const siteData = selectedSite ? { site_name: selectedSite.value } : null;
-
-      const selectedAmc = existingOptions.amcId.find(
-        (amc) => amc.value === requisition.amcId
-      );
-      const amcData = selectedAmc ? { reference_id: selectedAmc.value } : null;
-
-      if (!itemData) {
+      if (!selectedItem) {
         toast.error('Selected item is invalid. Please select an existing item.');
         return;
       }
-      if (!employeeData) {
+      if (!selectedEmployee) {
         toast.error('Selected employee is invalid. Please select an existing employee.');
         return;
       }
-      if (!siteData) {
+      if (!selectedSite) {
         toast.error('Selected site is invalid. Please select an existing site.');
         return;
       }
+      if (selectedAmc && !selectedAmc.amcname) {
+        toast.error('Selected AMC has no valid name. Please select a valid AMC or update backend data.');
+        return;
+      }
 
-      // Prepare requisition data for API
+      // Create the payload with the correct structure - IDs and amcname
       const requisitionData = {
         date: requisition.date,
-        item: itemData,
+        item_id: selectedItem.id,
         qty: parseInt(requisition.qty, 10),
-        site: siteData,
-        amc_id: amcData,
+        site_id: selectedSite.id,
+        amc_pk: selectedAmc ? selectedAmc.id : null, // Use id for submission
+        amcname: selectedAmc ? selectedAmc.amcname : null, // Include amcname
         service: requisition.service || '',
-        employee: employeeData,
+        employee_id: selectedEmployee.id,
+        // status and approve_for are omitted as they will use model defaults
       };
 
-      // Log payload for debugging
       console.log('Submitting requisition payload:', requisitionData);
 
-      // Make API call based on edit or create mode
+      let response;
       if (isEdit) {
-        await axiosInstance.put(
+        response = await axiosInstance.put(
           `${apiBaseUrl}/inventory/edit-requisition/${initialData.id}/`,
           requisitionData
         );
         toast.success('Requisition updated successfully.');
       } else {
-        await axiosInstance.post(
+        response = await axiosInstance.post(
           `${apiBaseUrl}/inventory/add-requisition/`,
           requisitionData
         );
         toast.success('Requisition created successfully.');
       }
 
-      // Notify parent component of successful submission
+      // Log the API response for debugging
+      console.log('API response after submission:', response.data);
+
       onSubmitSuccess();
       onClose();
     } catch (error) {
@@ -220,11 +245,13 @@ const RequisitionForm = ({
         Object.entries(error.response?.data || {})
           .map(([key, value]) => {
             if (Array.isArray(value)) return `${key}: ${value.join(', ')}`;
-            if (typeof value === 'object' && value.site_name) return `${key}: ${value.site_name.join(', ')}`;
-            if (typeof value === 'object' && value.name) return `${key}: ${value.name.join(', ')}`;
-            if (typeof value === 'object' && value.id) return `${key}: ${value.id.join(', ')}`;
-            if (typeof value === 'object' && value.reference_id) return `${key}: ${value.reference_id.join(', ')}`;
-            if (typeof value === 'object' && value.non_field_errors) return `${key}: ${value.non_field_errors.join(', ')}`;
+            if (typeof value === 'object' && value !== null) {
+              // Handle nested object errors
+              const nestedErrors = Object.entries(value)
+                .map(([nestedKey, nestedValue]) => `${nestedKey}: ${nestedValue}`)
+                .join(', ');
+              return `${key}: {${nestedErrors}}`;
+            }
             return `${key}: ${value}`;
           })
           .join('; ') ||
@@ -333,7 +360,7 @@ const RequisitionForm = ({
             {/* AMC ID */}
             <div className="form-group">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                AMC ID
+                AMC Name
               </label>
               <select
                 name="amcId"
@@ -341,11 +368,11 @@ const RequisitionForm = ({
                 onChange={handleInputChange}
                 className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200 appearance-none bg-white"
               >
-                <option value="">Select AMC ID</option>
+                <option value="">Select AMC Name</option>
                 {existingOptions.amcId.length > 0 ? (
                   existingOptions.amcId.map((option) => (
                     <option key={option.id} value={option.value}>
-                      {option.value}
+                      {option.value} {/* Display amcname or reference_id */}
                     </option>
                   ))
                 ) : (

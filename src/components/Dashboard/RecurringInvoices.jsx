@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar } from 'lucide-react';
+import { Plus, Trash2, Calendar, Search } from 'lucide-react';
 import RecurringInvoiceForm from '../Dashboard/Forms/RecurringInvoiceForm';
 import axios from 'axios';
 
@@ -31,10 +31,10 @@ const RecurringInvoices = () => {
       if (!response.data) throw new Error('No data received');
       setRecurringInvoices(response.data.map(invoice => ({
         id: invoice.id,
-        customerName: invoice.reference_id,
+        customerName: invoice.customer_name,
         profileName: invoice.profile_name,
         frequency: invoice.repeat_every,
-        lastInvoiceDate: invoice.last_invoice_date || '',
+        lastInvoiceDate: invoice.end_date || '',
         nextInvoiceDate: invoice.next_invoice_date || invoice.start_date,
         status: invoice.status.toUpperCase(),
         amount: `INR ${parseFloat(invoice.items.reduce((sum, item) => sum + item.total, 0)).toFixed(2)}`,
@@ -108,35 +108,21 @@ const RecurringInvoices = () => {
     CANCELLED: 'bg-red-100 text-red-800',
   };
 
-  // Debugging: Log state changes
-  useEffect(() => {
-    console.log('isFormOpen changed to:', isFormOpen);
-  }, [isFormOpen]);
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Recurring Invoices</h1>
-        <div className="flex flex-col sm:flex-row justify-end mb-6 gap-2 sm:gap-4">
-          <button
-            onClick={handleExport}
-            className="bg-gray-200 text-gray-700 px-4 py-2 rounded w-full sm:w-auto text-sm"
-          >
-            Export
-          </button>
-          <button
-            onClick={() => {
-              console.log('Create button clicked, setting isFormOpen to true');
-              setIsFormOpen(true);
-            }}
-            className="bg-[#243158] text-white px-4 py-2 rounded w-full sm:w-auto text-sm"
-          >
-            <Plus className="h-4 w-4 mr-2 inline" /> Create Recurring Invoice
-          </button>
-        </div>
         
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search recurring invoices..."
@@ -144,71 +130,134 @@ const RecurringInvoices = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleExport}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm w-full sm:w-auto"
+            >
+              Export
+            </button>
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="bg-[#243158] text-white px-4 py-2 rounded text-sm flex items-center justify-center w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Create Recurring Invoice
+            </button>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="grid grid-cols-7 bg-gray-200 p-3 text-sm font-semibold text-gray-700 border-b border-gray-300 hidden sm:grid">
-            <div className="p-3 text-left">Customer Name</div>
-            <div className="p-3 text-left">Profile Name</div>
-            <div className="p-3 text-center">Frequency</div>
-            <div className="p-3 text-center">Last Invoice Date</div>
-            <div className="p-3 text-center">Next Invoice Date</div>
-            <div className="p-3 text-center">Status</div>
-            <div className="p-3 text-right">Amount</div>
+        {/* Desktop Table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden hidden md:block">
+          <div className="grid grid-cols-7 bg-gray-100 p-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+            <div className="text-left">Customer</div>
+            <div className="text-left">Profile</div>
+            <div className="text-center">Frequency</div>
+            <div className="text-center">Last Invoice</div>
+            <div className="text-center">Next Invoice</div>
+            <div className="text-center">Status</div>
+            <div className="text-right">Amount</div>
           </div>
-          {filteredInvoices.map((invoice) => (
-            <div key={invoice.id} className="sm:grid sm:grid-cols-7 p-2 sm:p-3 border-b border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
-              {/* Mobile View: Stacked Card Layout */}
-              <div className="sm:hidden p-2 bg-gray-50 rounded mb-2">
-                <div className="text-left font-medium"><strong>Customer Name:</strong> {invoice.customerName}</div>
-                <div className="text-left"><strong>Profile Name:</strong> {invoice.profileName}</div>
-                <div className="text-center"><strong>Frequency:</strong> {invoice.frequency}</div>
-                <div className="text-center"><strong>Last Invoice:</strong> {invoice.lastInvoiceDate}</div>
-                <div className="text-center"><strong>Next Invoice:</strong> {invoice.nextInvoiceDate}</div>
+          
+          {filteredInvoices.length > 0 ? (
+            filteredInvoices.map((invoice) => (
+              <div key={invoice.id} className="grid grid-cols-7 p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
+                <div className="text-left font-medium truncate" title={invoice.customerName}>
+                  {invoice.customerName}
+                </div>
+                <div className="text-left truncate" title={invoice.profileName}>
+                  {invoice.profileName}
+                </div>
+                <div className="text-center">{invoice.frequency}</div>
+                <div className="text-center">{formatDate(invoice.lastInvoiceDate)}</div>
+                <div className="text-center font-medium text-blue-600">
+                  {formatDate(invoice.nextInvoiceDate)}
+                </div>
                 <div className="text-center">
-                  <strong>Status:</strong>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
                     {invoice.status}
                   </span>
                 </div>
-                <div className="text-right flex justify-between items-center mt-2">
-                  <span className="font-medium"><strong>Amount:</strong> {invoice.amount}</span>
+                <div className="text-right flex items-center justify-end">
+                  <span className="font-medium">{invoice.amount}</span>
                   <button
                     onClick={() => handleDelete(invoice.id)}
-                    className="text-gray-400 hover:text-red-600 text-sm"
+                    className="text-gray-400 hover:text-red-600 ml-3"
+                    title="Delete invoice"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-              {/* Desktop View: Grid Layout */}
-              <div className="hidden sm:block p-3 text-left font-medium">{invoice.customerName}</div>
-              <div className="hidden sm:block p-3 text-left">{invoice.profileName}</div>
-              <div className="hidden sm:block p-3 text-center">{invoice.frequency}</div>
-              <div className="hidden sm:block p-3 text-center">{invoice.lastInvoiceDate}</div>
-              <div className="hidden sm:block p-3 text-center">{invoice.nextInvoiceDate}</div>
-              <div className="hidden sm:block p-3 text-center">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
-                  {invoice.status}
-                </span>
-              </div>
-              <div className="hidden sm:block p-3 text-right flex items-center justify-end">
-                <span className="font-medium">{invoice.amount}</span>
-                <button
-                  onClick={() => handleDelete(invoice.id)}
-                  className="text-gray-400 hover:text-red-600 text-sm ml-2"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-              </div>
+            ))
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              No recurring invoices found
             </div>
-          ))}
+          )}
+        </div>
+        
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-4">
+          {filteredInvoices.length > 0 ? (
+            filteredInvoices.map((invoice) => (
+              <div key={invoice.id} className="bg-white rounded-lg shadow p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-medium text-gray-900 truncate" title={invoice.customerName}>
+                    {invoice.customerName}
+                  </h3>
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
+                    {invoice.status}
+                  </span>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Profile:</span>
+                    <span className="font-medium">{invoice.profileName}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Frequency:</span>
+                    <span>{invoice.frequency}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Last Invoice:</span>
+                    <span>{formatDate(invoice.lastInvoiceDate)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Next Invoice:</span>
+                    <span className="font-medium text-blue-600">{formatDate(invoice.nextInvoiceDate)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                    <span className="text-gray-500">Amount:</span>
+                    <div className="flex items-center">
+                      <span className="font-medium mr-3">{invoice.amount}</span>
+                      <button
+                        onClick={() => handleDelete(invoice.id)}
+                        className="text-gray-400 hover:text-red-600"
+                        title="Delete invoice"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+              No recurring invoices found
+            </div>
+          )}
         </div>
         
         <div className="text-sm text-gray-500 mt-4 text-center">
-          Showing 1-{filteredInvoices.length} of {recurringInvoices.length}
+          Showing {filteredInvoices.length} of {recurringInvoices.length} invoices
         </div>
 
         <RecurringInvoiceForm

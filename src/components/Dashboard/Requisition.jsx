@@ -53,13 +53,13 @@ const Requisition = () => {
       console.log('Fetched requisitions:', response.data);
 
       const requisitionsData = response.data.map(req => ({
-        id: req.reference_id,
+        id: req.id,
         date: req.date,
         itemName: req.item?.name || '',
-        itemDetails: req.item_details || '',
+        itemDetails: req.item?.sale_price || '',
         qty: req.qty,
         site: req.site?.site_name || '', // Changed to site_name
-        amcDetails: req.amc_id?.reference_id || '',
+        amcDetails: req.amc_id?.amcname || '',
         service: req.service || '',
         status: req.status,
         employee: req.employee?.name || '',

@@ -35,6 +35,7 @@ const QuotationForm = ({
     customer: [],
     amcType: [],
     lift: [],
+    salesExecutive: [], // Added salesExecutive to store fetched employees
   });
 
   // Centralized Axios instance with Bearer token
@@ -51,55 +52,58 @@ const QuotationForm = ({
   };
 
   // Fetch existing options
- const fetchOptions = async (field, retryCount = 2) => {
-  const axiosInstance = createAxiosInstance();
-  if (!axiosInstance) return;
+  const fetchOptions = async (field, retryCount = 2) => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
 
-  try {
-    const endpoints = {
-      customer: 'sales/customer-list/',
-      amcType: 'amc/amc-types/',
-      lift: 'auth/lift_list/',
-    };
-    const response = await axiosInstance.get(`${apiBaseUrl}/${endpoints[field]}`);
-    console.log(`Fetched ${field} data:`, response.data);
-    let options = response.data?.results || response.data?.data || response.data || [];
-    if (field === 'customer') {
-      options = options.map(item => ({ id: item.id, site_name: item.site_name }));
-    } else if (field === 'amcType') {
-      options = options.map(item => ({
-        id: item.id,
-        type: item.type || item.name || `AMC-${item.id}`, // Adjust based on actual field
+    try {
+      const endpoints = {
+        customer: 'sales/customer-list/',
+        amcType: 'amc/amc-types/',
+        lift: 'auth/lift_list/',
+        salesExecutive: 'auth/employees/', // Added endpoint for employees
+      };
+      const response = await axiosInstance.get(`${apiBaseUrl}/${endpoints[field]}`);
+      console.log(`Fetched ${field} data:`, response.data);
+      let options = response.data?.results || response.data?.data || response.data || [];
+      if (field === 'customer') {
+        options = options.map(item => ({ id: item.id, site_name: item.site_name }));
+      } else if (field === 'amcType') {
+        options = options.map(item => ({
+          id: item.id,
+          type: item.type || item.name || `AMC-${item.id}`,
+        }));
+      } else if (field === 'lift') {
+        options = options.map(item => ({ id: item.id, lift_code: item.lift_code }));
+      } else if (field === 'salesExecutive') {
+        options = options.map(item => ({ id: item.id, name: item.name }));
+      }
+      setExistingOptions((prev) => ({
+        ...prev,
+        [field]: options,
       }));
-    } else if (field === 'lift') {
-      options = options.map(item => ({ id: item.id, lift_code: item.lift_code }));
+    } catch (error) {
+      console.error(`Error fetching ${field}:`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else if (retryCount > 0) {
+        console.log(`Retrying fetchOptions for ${field}... (${retryCount} attempts left)`);
+        setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
+      } else {
+        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}: ${error.message}`);
+      }
     }
-    setExistingOptions((prev) => ({
-      ...prev,
-      [field]: options,
-    }));
-  } catch (error) {
-    console.error(`Error fetching ${field}:`, {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    if (error.response?.status === 401) {
-      toast.error('Session expired. Please log in again.');
-      localStorage.removeItem('access_token');
-      window.location.href = '/login';
-    } else if (retryCount > 0) {
-      console.log(`Retrying fetchOptions for ${field}... (${retryCount} attempts left)`);
-      setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
-    } else {
-      toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}: ${error.message}`);
-    }
-  }
-};
+  };
 
   // Fetch options on component mount
   useEffect(() => {
-    const fields = ['customer', 'amcType', 'lift'];
+    const fields = ['customer', 'amcType', 'lift', 'salesExecutive']; // Added salesExecutive
     fields.forEach(field => fetchOptions(field));
   }, [apiBaseUrl]);
 
@@ -147,10 +151,11 @@ const QuotationForm = ({
     if (!axiosInstance) return;
 
     try {
-      const [customers, amcTypes, lifts] = await Promise.all([
+      const [customers, amcTypes, lifts, employees] = await Promise.all([
         axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`),
         axiosInstance.get(`${apiBaseUrl}/amc/amc-types/`),
         axiosInstance.get(`${apiBaseUrl}/auth/lift_list/`),
+        axiosInstance.get(`${apiBaseUrl}/auth/employees/`), // Fetch employees for submission
       ]);
 
       const quotationData = {
@@ -158,7 +163,7 @@ const QuotationForm = ({
         customer: customers.data.find(c => c.site_name === formData.customer)?.id || formData.customer,
         type: formData.type,
         amc_type: amcTypes.data.find(a => a.type === formData.amcType)?.id || null,
-        sales_executive: formData.salesExecutive !== 'Select Executive' ? formData.salesExecutive : null,
+        sales_executive: employees.data.find(e => e.name === formData.salesExecutive)?.id || null, // Map name to ID
         year_of_make: formData.yearOfMake || null,
         date: formData.date,
         remark: formData.remark || null,
@@ -272,21 +277,21 @@ const QuotationForm = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Quotation Type <span className="text-red-500">*</span>
                 </label>
-               <select
-  name="type"
-  value={formData.type}
-  onChange={handleInputChange}
-  className={`block w-full px-4 py-2.5 rounded-lg border ${
-    errors.type ? 'border-red-500' : 'border-gray-300'
-  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white`}
-  required
->
-  <option value="">Select Type</option>
-  <option value="Parts/Peripheral Quotation">Parts/Peripheral Quotation</option>
-  <option value="Repair">Repair</option>
-  <option value="AMC Renewal Quotation">AMC Renewal Quotation</option>
-  <option value="AMC">AMC</option>
-</select>
+                <select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleInputChange}
+                  className={`block w-full px-4 py-2.5 rounded-lg border ${
+                    errors.type ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white`}
+                  required
+                >
+                  <option value="">Select Type</option>
+                  <option value="Parts/Peripheral Quotation">Parts/Peripheral Quotation</option>
+                  <option value="Repair">Repair</option>
+                  <option value="AMC Renewal Quotation">AMC Renewal Quotation</option>
+                  <option value="AMC">AMC</option>
+                </select>
                 {errors.type && (
                   <p className="text-red-500 text-xs mt-1">{errors.type}</p>
                 )}
@@ -324,10 +329,11 @@ const QuotationForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
                   <option value="">Select Executive</option>
-                  <option value="John Doe">John Doe</option>
-                  <option value="Jane Smith">Jane Smith</option>
-                  <option value="Alex Johnson">Alex Johnson</option>
-                  <option value="Emily Davis">Emily Davis</option>
+                  {existingOptions.salesExecutive.map((option) => (
+                    <option key={option.id} value={option.name}>
+                      {option.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

@@ -250,7 +250,7 @@ const AMCForm = ({
       const formData = new FormData();
       formData.append('customer', selectedCustomer.id);
       formData.append('reference_id', newAMC.referenceId);
-      formData.append('amc_name', newAMC.amc_name || '');
+      formData.append('amcname', newAMC.amc_name || '');
       formData.append('invoice_frequency', newAMC.invoiceFrequency || 'annually');
       
       if (newAMC.amcType) {

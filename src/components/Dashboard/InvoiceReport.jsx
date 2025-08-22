@@ -1,69 +1,177 @@
-import React, { useState } from 'react';
-import { 
-  Search, Printer, Copy, FileText, 
-  File, MoreVertical, Calendar 
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Printer, MoreVertical, Copy, FileText, File } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+
+const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
 const InvoiceReport = () => {
-  const primaryColor = '#243158';
-  const [showExportMenu, setShowExportMenu] = useState(false);
-
-  // Sample invoice data
-  const invoices = [
-    {
-      sno: '1',
-      invoiceNo: 'INV-2025-001',
-      date: '15.07.2025',
-      ltmaNo: 'LTMA-001',
-      customer: 'Mr. Rajesh - Chennai',
-      state: 'Tamil Nadu',
-      quotationNo: 'QUO-2025-001',
-      amcOrderNo: 'AMC-ORD-001',
-      invoiceAmount: '₹59,000',
-      paymentAmount: '₹30,000',
-      paymentId: 'PAY-001'
-    },
-    // Add more invoices as needed
-  ];
-
-  const months = [
-    'January', 'February', 'March', 'April', 
-    'May', 'June', 'July', 'August',
-    'September', 'October', 'November', 'December'
-  ];
-  const currentYear = new Date().getFullYear();
-
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    customer: '',
-    providerState: '',
-    routes: '',
-    amcTypes: '',
-    period: 'MONTH',
-    dueAmount: 'ALL',
-    month: 'July',
-    startDate: '01.07.2025',
-    endDate: '31.07.2025'
+    period: 'ALL TIME',
+    customer: 'ALL',
+    by: 'ALL',
+    status: 'ALL',
   });
+  const [periodOptions] = useState(['ALL TIME', 'CURRENT MONTH']);
+  const [byOptions] = useState(['ALL', 'Customer', 'Admin']);
+  const [statusOptions] = useState(['ALL', 'PAID', 'Pending']);
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const itemsPerPage = 7;
+  const primaryColor = '#243158';
+
+  const createAxiosInstance = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return null;
+    }
+    return axios.create({
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  };
+
+  const fetchData = async (retryCount = 3) => {
+    setLoading(true);
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.get(`${apiBaseUrl}/sales/invoice-list/`);
+
+      const invoicesData = response.data.map((invoice) => ({
+        id: invoice.id,
+        invoiceId: invoice.reference_id || invoice.id,
+        customer: invoice.customer_name || 'N/A',
+        invoiceDate: invoice.start_date,
+        dueDate: invoice.due_date,
+        value: `INR ${invoice.value || '0.00'}`,
+        dueBalance: `INR ${invoice.due_balance || '0.00'}`,
+        status: invoice.status || 'Pending',
+        source: invoice.contact_person_name ? 'Customer' : 'Admin', // Assuming similar to complaints
+      }));
+
+      setInvoices(invoicesData);
+      setCustomerOptions(Array.from(new Set(response.data.map(inv => inv.customer_name).filter(Boolean))));
+    } catch (error) {
+      console.error('Error fetching data:', error.response?.data || error.message);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else if (retryCount > 0) {
+        console.log(`Retrying fetchData... (${retryCount} attempts left)`);
+        setTimeout(() => fetchData(retryCount - 1), 1000);
+      } else {
+        toast.error(
+          error.response?.data?.error ||
+            'Failed to fetch invoice data. Please check your network or API endpoint.'
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
+    setCurrentPage(1);
   };
 
-  const handleExport = (type) => {
-    setShowExportMenu(false);
-    console.log(`Exporting as ${type}`);
-    // Implement export functionality here
+  const resetFilters = () => {
+    setFilters({
+      period: 'ALL TIME',
+      customer: 'ALL',
+      by: 'ALL',
+      status: 'ALL',
+    });
+    setCurrentPage(1);
   };
+
+  const handleExport = async (type) => {
+    setShowExportMenu(false);
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const response = await axiosInstance.get(`${apiBaseUrl}/sales/export-invoices-to-excel/`, {
+        responseType: 'blob',
+      });
+
+      let filename;
+      if (type === 'copy') {
+        const text = invoices.map(c => Object.values(c).join(',')).join('\n');
+        navigator.clipboard.writeText(text);
+        toast.success('Invoice reports copied to clipboard.');
+        return;
+      } else if (type === 'csv') {
+        filename = 'invoice_reports_export.csv';
+      } else if (type === 'pdf') {
+        filename = 'invoice_reports_export.pdf';
+      } else if (type === 'print') {
+        window.print();
+        return;
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Invoice reports exported as ${type.toUpperCase()} successfully.`);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error(error.response?.data?.error || `Failed to export invoice reports as ${type.toUpperCase()}.`);
+      }
+    }
+  };
+
+  const getFilteredInvoices = () => {
+    return invoices.filter((inv) => {
+      if (filters.period === 'CURRENT MONTH') {
+        const dueDate = new Date(inv.dueDate);
+        const now = new Date();
+        if (dueDate.getMonth() !== now.getMonth() || dueDate.getFullYear() !== now.getFullYear()) return false;
+      }
+      if (filters.customer !== 'ALL' && inv.customer !== filters.customer) return false;
+      if (filters.by !== 'ALL' && inv.source !== filters.by) return false;
+      if (filters.status !== 'ALL' && inv.status !== filters.status) return false;
+      return true;
+    });
+  };
+
+  const filteredInvoices = getFilteredInvoices();
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentInvoices = filteredInvoices.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Invoice Reports</h1>
-          <div className="mt-4 md:mt-0 flex gap-2">
-            {/* Export Menu */}
+          <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
             <div className="relative">
               <button 
                 className="flex items-center bg-white border rounded-md px-3 py-2 text-sm hover:bg-gray-50"
@@ -112,196 +220,169 @@ const InvoiceReport = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-            {/* Row 1 */}
-            <div>
-              <label className="text-gray-500 mb-1 block">Customer</label>
-              <select 
-                name="customer"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.customer}
-                onChange={handleFilterChange}
-              >
-                <option value="">SELECT</option>
-                <option>Customer 1</option>
-                <option>Customer 2</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-gray-500 mb-1 block">Provider/State</label>
-              <select 
-                name="providerState"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.providerState}
-                onChange={handleFilterChange}
-              >
-                <option value="">SELECT</option>
-                <option>Tamil Nadu</option>
-                <option>Karnataka</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-gray-500 mb-1 block">Routes</label>
-              <select 
-                name="routes"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.routes}
-                onChange={handleFilterChange}
-              >
-                <option value="">SELECT</option>
-                <option>Route 1</option>
-                <option>Route 2</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-gray-500 mb-1 block">AMC Types</label>
-              <select 
-                name="amcTypes"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.amcTypes}
-                onChange={handleFilterChange}
-              >
-                <option value="">SELECT</option>
-                <option>Comprehensive</option>
-                <option>Basic</option>
-              </select>
-            </div>
-
-            {/* Row 2 */}
-            <div>
-              <label className="text-gray-500 mb-1 block">Period</label>
-              <select 
-                name="period"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.period}
-                onChange={handleFilterChange}
-              >
-                <option>MONTH</option>
-                <option>WEEK</option>
-                <option>QUARTER</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-gray-500 mb-1 block">Due Amount</label>
-              <select 
-                name="dueAmount"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.dueAmount}
-                onChange={handleFilterChange}
-              >
-                <option>ALL</option>
-                <option>Due</option>
-                <option>Paid</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-gray-500 mb-1 block">Month*</label>
-              <select 
-                name="month"
-                className="w-full border border-gray-300 rounded p-2"
-                value={filters.month}
-                onChange={handleFilterChange}
-              >
-                {months.map(month => (
-                  <option key={month} value={month}>
-                    {month.toUpperCase()}, {currentYear}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-gray-500 mb-1 block">Start Date*</label>
-              <div className="flex items-center border border-gray-300 rounded p-2">
-                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                <input 
-                  type="text" 
-                  name="startDate"
-                  className="w-full outline-none" 
-                  value={filters.startDate}
-                  onChange={handleFilterChange}
-                />
-              </div>
-            </div>
-
-            {/* Row 3 */}
-            <div>
-              <label className="text-gray-500 mb-1 block">End Date</label>
-              <div className="flex items-center border border-gray-300 rounded p-2">
-                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                <input 
-                  type="text" 
-                  name="endDate"
-                  className="w-full outline-none" 
-                  value={filters.endDate}
-                  onChange={handleFilterChange}
-                />
-              </div>
-            </div>
-
-            <div className="md:col-start-4 flex items-end">
-              <button 
-                className="flex items-center justify-center text-white rounded p-2 w-full transition-colors"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </button>
-            </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-2 items-center justify-between flex-wrap">
+          <div className="flex flex-col w-full sm:w-40">
+            <label className="mb-1 text-xs text-gray-500 font-medium" htmlFor="period-select">
+              Period
+            </label>
+            <select
+              id="period-select"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#243158] w-full"
+              value={filters.period}
+              onChange={handleFilterChange}
+              name="period"
+            >
+              {periodOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
           </div>
+          <div className="flex flex-col w-full sm:w-40">
+            <label className="mb-1 text-xs text-gray-500 font-medium" htmlFor="by-select">
+              By
+            </label>
+            <select
+              id="by-select"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#243158] w-full"
+              value={filters.by}
+              onChange={handleFilterChange}
+              name="by"
+            >
+              {byOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col w-full sm:w-40">
+            <label className="mb-1 text-xs text-gray-500 font-medium" htmlFor="customer-select">
+              Customer
+            </label>
+            <select
+              id="customer-select"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#243158] w-full"
+              value={filters.customer}
+              onChange={handleFilterChange}
+              name="customer"
+            >
+              <option value="ALL">ALL</option>
+              {customerOptions.map((option, index) => (
+                <option key={`${option}-${index}`} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col w-full sm:w-40">
+            <label className="mb-1 text-xs text-gray-500 font-medium" htmlFor="status-select">
+              Status
+            </label>
+            <select
+              id="status-select"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#243158] w-full"
+              value={filters.status}
+              onChange={handleFilterChange}
+              name="status"
+            >
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            className="bg-[#243158] hover:bg-[#1b2545] text-white px-4 py-2 rounded-md text-sm flex items-center mt-4 sm:mt-0"
+            onClick={resetFilters}
+          >
+            <Search className="inline mr-2 h-4 w-4" />
+            Search
+          </button>
         </div>
 
-        {/* Invoice Table with Horizontal Scroll */}
+        {/* Invoice Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-[1300px]">
-              {/* Table Header */}
-              <div className="grid grid-cols-10 bg-gray-100 p-3 font-medium text-gray-700 text-sm border-b border-gray-200">
-                <div className="px-2">S.NO</div>
-                <div className="px-2">INVOICE NO</div>
-                <div className="px-2">DATE</div>
-                <div className="px-2">LTMA NO</div>
+            <div className="min-w-[1000px]">
+              <div className="grid grid-cols-8 bg-gray-100 p-3 font-medium text-gray-700 text-sm border-b border-gray-200">
+                <div className="px-2">INVOICE ID</div>
                 <div className="px-2">CUSTOMER</div>
-                <div className="px-2">STATE</div>
-                <div className="px-2">QUOTATION NO</div>
-                <div className="px-2">AMC ORDER/CONTRACT NO</div>
-                <div className="px-2">INVOICE AMOUNT</div>
-                <div className="px-2">PAYMENT ID</div>
+                <div className="px-2">INVOICE DATE</div>
+                <div className="px-2">DUE DATE</div>
+                <div className="px-2">VALUE</div>
+                <div className="px-2">DUE BALANCE</div>
+                <div className="px-2">STATUS</div>
+                <div className="px-2">PRINT</div>
               </div>
               
-              {/* Table Rows */}
-              {invoices.length > 0 ? (
-                invoices.map((invoice, index) => (
-                  <div key={index} className="grid grid-cols-10 p-3 border-b border-gray-200 text-sm items-center">
-                    <div className="px-2">{invoice.sno}</div>
-                    <div className="px-2 font-medium">{invoice.invoiceNo}</div>
-                    <div className="px-2">{invoice.date}</div>
-                    <div className="px-2">{invoice.ltmaNo}</div>
+              {loading ? (
+                <div className="p-4 text-center text-gray-500 col-span-8">
+                  Loading invoice reports...
+                </div>
+              ) : currentInvoices.length > 0 ? (
+                currentInvoices.map((invoice, index) => (
+                  <div key={index} className="grid grid-cols-8 p-3 border-b border-gray-200 text-sm items-center">
+                    <div className="px-2 font-medium">{invoice.invoiceId}</div>
                     <div className="px-2">{invoice.customer}</div>
-                    <div className="px-2">{invoice.state}</div>
-                    <div className="px-2">{invoice.quotationNo}</div>
-                    <div className="px-2">{invoice.amcOrderNo}</div>
-                    <div className="px-2">{invoice.invoiceAmount}</div>
-                    <div className="px-2">{invoice.paymentId}</div>
+                    <div className="px-2">{invoice.invoiceDate}</div>
+                    <div className="px-2">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        new Date(invoice.dueDate) < new Date() ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {invoice.dueDate}
+                      </span>
+                    </div>
+                    <div className="px-2">{invoice.value}</div>
+                    <div className="px-2">{invoice.dueBalance}</div>
+                    <div className="px-2">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        invoice.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {invoice.status}
+                      </span>
+                    </div>
+                    <div className="px-2">
+                      <button 
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        onClick={() => {} /* Add print logic if available */}
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (
-                <div className="p-4 text-center text-gray-500 col-span-10">
-                  No invoices found for the selected filters
+                <div className="p-4 text-center text-gray-500 col-span-8">
+                  No invoice reports found for the selected period
                 </div>
               )}
             </div>
           </div>
 
-          {/* Pagination */}
-          <div className="p-3 text-sm text-gray-600 border-t border-gray-200">
-            Showing 1-{invoices.length} of {invoices.length}
+          <div className="p-3 text-sm text-gray-600 border-t border-gray-200 flex justify-between items-center">
+            <span>
+              Showing {filteredInvoices.length === 0 ? 0 : indexOfFirstItem + 1} to 
+              {Math.min(indexOfLastItem, filteredInvoices.length)} of {filteredInvoices.length} entries
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>

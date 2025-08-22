@@ -81,7 +81,7 @@ const AMC = () => {
 
       const amcDataMapped = amcResponse.data.map(item => ({
         id: item.id,
-        amc: item.amc_name || 'N/A', // Fixed mapping to correctly use amc_name
+        amc: item.amcname || 'N/A', // Fixed mapping to correctly use amc_name
         customer: item.customer_name || '-', // Use customer_name from serializer
         created: new Date(item.created).toLocaleDateString('en-GB', {
           day: '2-digit',

@@ -1,5 +1,6 @@
+// RecurringInvoices.jsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Search } from 'lucide-react';
+import { Plus, Trash2, Pencil, Calendar, Search } from 'lucide-react';
 import RecurringInvoiceForm from '../Dashboard/Forms/RecurringInvoiceForm';
 import axios from 'axios';
 
@@ -8,12 +9,15 @@ const RecurringInvoices = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Centralized Axios instance with Bearer token
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
-      console.error('Authentication token not found');
+      console.error('Authentication token not found in localStorage');
+      setError('Authentication token not found. Please log in.');
       return null;
     }
     return axios.create({
@@ -23,41 +27,54 @@ const RecurringInvoices = () => {
 
   // Fetch recurring invoices
   const fetchRecurringInvoices = async (retryCount = 2) => {
+    setLoading(true);
+    setError(null);
     const axiosInstance = createAxiosInstance();
     if (!axiosInstance) return;
 
     try {
       const response = await axiosInstance.get(`${import.meta.env.VITE_BASE_API}/sales/recurring-invoice-list/`);
-      if (!response.data) throw new Error('No data received');
-      setRecurringInvoices(response.data.map(invoice => ({
-        id: invoice.id,
-        customerName: invoice.customer_name,
-        profileName: invoice.profile_name,
-        frequency: invoice.repeat_every,
-        lastInvoiceDate: invoice.end_date || '',
-        nextInvoiceDate: invoice.next_invoice_date || invoice.start_date,
-        status: invoice.status.toUpperCase(),
-        amount: `INR ${parseFloat(invoice.items.reduce((sum, item) => sum + item.total, 0)).toFixed(2)}`,
-      })));
-    } catch (error) {
-      console.error('Error fetching recurring invoices:', error);
-      if (error.response?.status === 401) {
-        console.error('Session expired. Please log in again.');
-      } else if (retryCount > 0 && error.code === 'ERR_NETWORK') {
-        console.log(`Retrying fetch for recurring invoices... (${retryCount} attempts left)`);
-        setTimeout(() => fetchRecurringInvoices(retryCount - 1), 2000);
-      } else {
-        console.error('Failed to fetch recurring invoices.');
+      console.log('API Response:', response.data); // Debug log
+      if (!response.data || !Array.isArray(response.data)) {
+        throw new Error('Invalid data format received from API');
       }
+      const mappedInvoices = response.data.map(invoice => ({
+        id: invoice.id || '',
+        customerName: invoice.customer_name || 'Unknown',
+        profileName: invoice.profile_name || '',
+        frequency: invoice.frequency_display || invoice.repeat_every || 'Unknown',
+        lastInvoiceDate: invoice.last_invoice_date || '',
+        nextInvoiceDate: invoice.next_invoice_date || invoice.start_date || '',
+        status: (invoice.status || 'UNKNOWN').toUpperCase(),
+        amount: `INR ${parseFloat(invoice.amount || 0).toFixed(2)}`,
+      }));
+      setRecurringInvoices(mappedInvoices);
+      console.log('Mapped Invoices:', mappedInvoices); // Debug log
+    } catch (error) {
+      console.error('Error fetching recurring invoices:', error.response ? error.response : error);
+      const message = error.response?.status === 401 
+        ? 'Session expired. Please log in again.' 
+        : error.code === 'ERR_NETWORK' 
+          ? `Network error. Retrying... (${retryCount} attempts left)` 
+          : 'Failed to fetch recurring invoices. Check server or API endpoint.';
+      setError(message);
+      if (retryCount > 0 && error.code === 'ERR_NETWORK') {
+        setTimeout(() => fetchRecurringInvoices(retryCount - 1), 2000);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('useEffect triggered, fetching invoices...');
     fetchRecurringInvoices();
   }, []);
 
-  const handleInvoiceAdded = (newInvoice) => {
-    setRecurringInvoices((prev) => [...prev, newInvoice]);
+  const handleSuccess = () => {
+    fetchRecurringInvoices();
+    setIsFormOpen(false);
+    setSelectedInvoice(null);
   };
 
   const handleDelete = async (id) => {
@@ -67,10 +84,30 @@ const RecurringInvoices = () => {
 
       try {
         await axiosInstance.delete(`${import.meta.env.VITE_BASE_API}/sales/delete-recurring-invoice/${id}/`);
-        setRecurringInvoices((prev) => prev.filter(invoice => invoice.id !== id));
+        fetchRecurringInvoices();
       } catch (error) {
         console.error('Error deleting recurring invoice:', error);
         alert('Failed to delete recurring invoice.');
+      }
+    }
+  };
+
+  const handleGenerate = async (id, nextInvoiceDate, status) => {
+    if (new Date(nextInvoiceDate) > new Date() || status !== 'ACTIVE') {
+      alert('This invoice is not due yet or is not active.');
+      return;
+    }
+    if (window.confirm('Generate invoice from this recurring template?')) {
+      const axiosInstance = createAxiosInstance();
+      if (!axiosInstance) return;
+
+      try {
+        const response = await axiosInstance.post(`${import.meta.env.VITE_BASE_API}/sales/generate_invoice_from_recurring/${id}/`);
+        alert(response.data.message);
+        fetchRecurringInvoices();
+      } catch (error) {
+        console.error('Error generating invoice:', error);
+        alert('Failed to generate invoice.');
       }
     }
   };
@@ -106,9 +143,9 @@ const RecurringInvoices = () => {
     ACTIVE: 'bg-green-100 text-green-800',
     COMPLETED: 'bg-yellow-100 text-yellow-800',
     CANCELLED: 'bg-red-100 text-red-800',
+    UNKNOWN: 'bg-gray-100 text-gray-800',
   };
 
-  // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -140,7 +177,7 @@ const RecurringInvoices = () => {
               Export
             </button>
             <button
-              onClick={() => setIsFormOpen(true)}
+              onClick={() => { setSelectedInvoice(null); setIsFormOpen(true); }}
               className="bg-[#243158] text-white px-4 py-2 rounded text-sm flex items-center justify-center w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" /> Create Recurring Invoice
@@ -148,95 +185,61 @@ const RecurringInvoices = () => {
           </div>
         </div>
         
-        {/* Desktop Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden hidden md:block">
-          <div className="grid grid-cols-7 bg-gray-100 p-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
-            <div className="text-left">Customer</div>
-            <div className="text-left">Profile</div>
-            <div className="text-center">Frequency</div>
-            <div className="text-center">Last Invoice</div>
-            <div className="text-center">Next Invoice</div>
-            <div className="text-center">Status</div>
-            <div className="text-right">Amount</div>
-          </div>
-          
-          {filteredInvoices.length > 0 ? (
-            filteredInvoices.map((invoice) => (
-              <div key={invoice.id} className="grid grid-cols-7 p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
-                <div className="text-left font-medium truncate" title={invoice.customerName}>
-                  {invoice.customerName}
-                </div>
-                <div className="text-left truncate" title={invoice.profileName}>
-                  {invoice.profileName}
-                </div>
-                <div className="text-center">{invoice.frequency}</div>
-                <div className="text-center">{formatDate(invoice.lastInvoiceDate)}</div>
-                <div className="text-center font-medium text-blue-600">
-                  {formatDate(invoice.nextInvoiceDate)}
-                </div>
-                <div className="text-center">
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
-                    {invoice.status}
-                  </span>
-                </div>
-                <div className="text-right flex items-center justify-end">
-                  <span className="font-medium">{invoice.amount}</span>
-                  <button
-                    onClick={() => handleDelete(invoice.id)}
-                    className="text-gray-400 hover:text-red-600 ml-3"
-                    title="Delete invoice"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-8 text-center text-gray-500">
-              No recurring invoices found
-            </div>
-          )}
-        </div>
+        {loading && <div className="text-center text-gray-500">Loading...</div>}
+        {error && <div className="bg-red-100 text-red-700 p-4 rounded mb-4">{error}</div>}
         
-        {/* Mobile Cards */}
-        <div className="md:hidden space-y-4">
-          {filteredInvoices.length > 0 ? (
-            filteredInvoices.map((invoice) => (
-              <div key={invoice.id} className="bg-white rounded-lg shadow p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-medium text-gray-900 truncate" title={invoice.customerName}>
-                    {invoice.customerName}
-                  </h3>
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
-                    {invoice.status}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Profile:</span>
-                    <span className="font-medium">{invoice.profileName}</span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Frequency:</span>
-                    <span>{invoice.frequency}</span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Last Invoice:</span>
-                    <span>{formatDate(invoice.lastInvoiceDate)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Next Invoice:</span>
-                    <span className="font-medium text-blue-600">{formatDate(invoice.nextInvoiceDate)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                    <span className="text-gray-500">Amount:</span>
-                    <div className="flex items-center">
-                      <span className="font-medium mr-3">{invoice.amount}</span>
+        {/* Desktop Table */}
+        {!loading && !error && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="grid grid-cols-7 bg-gray-100 p-4 text-xs text-gray-700 uppercase tracking-wider">
+              <div className="text-left">Customer</div>
+              <div className="text-left">Profile</div>
+              <div className="text-center">Frequency</div>
+              <div className="text-center">Last Invoice</div>
+              <div className="text-center">Next Invoice</div>
+              <div className="text-center">Status</div>
+              <div className="text-right">Amount / Actions</div>
+            </div>
+            
+            {filteredInvoices.length > 0 ? (
+              filteredInvoices.map((invoice) => {
+                const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
+                return (
+                  <div key={invoice.id} className="grid grid-cols-7 p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
+                    <div className="text-left font-medium truncate" title={invoice.customerName}>
+                      {invoice.customerName}
+                    </div>
+                    <div className="text-left truncate" title={invoice.profileName}>
+                      {invoice.profileName}
+                    </div>
+                    <div className="text-center">{invoice.frequency}</div>
+                    <div className="text-center">{formatDate(invoice.lastInvoiceDate)}</div>
+                    <div className="text-center font-medium text-blue-600">
+                      {formatDate(invoice.nextInvoiceDate)}
+                    </div>
+                    <div className="text-center">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
+                        {invoice.status}
+                      </span>
+                    </div>
+                    <div className="text-right flex items-center justify-end space-x-2">
+                      <span className="font-medium">{invoice.amount}</span>
+                      <button
+                        onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Edit invoice"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      {isDue && (
+                        <button
+                          onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
+                          className="text-gray-400 hover:text-green-600"
+                          title="Generate invoice"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(invoice.id)}
                         className="text-gray-400 hover:text-red-600"
@@ -246,15 +249,94 @@ const RecurringInvoices = () => {
                       </button>
                     </div>
                   </div>
-                </div>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                No recurring invoices found.
               </div>
-            ))
-          ) : (
-            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-              No recurring invoices found
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+        
+        {/* Mobile Cards */}
+        {!loading && !error && (
+          <div className="md:hidden space-y-4">
+            {filteredInvoices.length > 0 ? (
+              filteredInvoices.map((invoice) => {
+                const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
+                return (
+                  <div key={invoice.id} className="bg-white rounded-lg shadow p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-medium text-gray-900 truncate" title={invoice.customerName}>
+                        {invoice.customerName}
+                      </h3>
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
+                        {invoice.status}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Profile:</span>
+                        <span className="font-medium">{invoice.profileName}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Frequency:</span>
+                        <span>{invoice.frequency}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Last Invoice:</span>
+                        <span>{formatDate(invoice.lastInvoiceDate)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Next Invoice:</span>
+                        <span className="font-medium text-blue-600">{formatDate(invoice.nextInvoiceDate)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <span className="text-gray-500">Amount:</span>
+                        <span className="font-medium">{invoice.amount}</span>
+                      </div>
+                      <div className="flex justify-end space-x-2 pt-2">
+                        <button
+                          onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
+                          className="text-gray-400 hover:text-blue-600"
+                          title="Edit invoice"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        {isDue && (
+                          <button
+                            onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
+                            className="text-gray-400 hover:text-green-600"
+                            title="Generate invoice"
+                          >
+                            <Calendar className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(invoice.id)}
+                          className="text-gray-400 hover:text-red-600"
+                          title="Delete invoice"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+                No recurring invoices found.
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="text-sm text-gray-500 mt-4 text-center">
           Showing {filteredInvoices.length} of {recurringInvoices.length} invoices
@@ -263,7 +345,7 @@ const RecurringInvoices = () => {
         <RecurringInvoiceForm
           isOpen={isFormOpen}
           onClose={() => { setIsFormOpen(false); setSelectedInvoice(null); }}
-          onPaymentAdded={handleInvoiceAdded}
+          onSuccess={handleSuccess}
           isEdit={!!selectedInvoice}
           initialData={selectedInvoice || {}}
         />

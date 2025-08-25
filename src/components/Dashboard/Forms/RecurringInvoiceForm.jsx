@@ -1,31 +1,51 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
-const RecurringInvoiceForm = ({ isOpen, onClose, onInvoiceAdded, isEdit = false, initialData = {} }) => {
-  const [formData, setFormData] = useState({
-    customer: '',
-    profileName: '',
-    frequency: 'week',
-    startDate: '',
-    endDate: '',
-    status: 'active',
-    item: '', // Single item field instead of items array
-    rate: '',
-    qty: 1,
-    tax: 0.00,
-    ...initialData,
+const RequisitionForm = ({
+  isEdit = false,
+  initialData = {},
+  onClose,
+  onSubmitSuccess,
+  apiBaseUrl,
+  dropdownOptions = {},
+}) => {
+  // Map initial amcId to amcname or fallback to reference_id
+  const getInitialAmcName = (amcId, options) => {
+    if (!amcId) return '';
+    const selectedAmc = options.find(option => option.id === amcId);
+    return selectedAmc ? selectedAmc.value : '';
+  };
+
+  // Form state
+  const [requisition, setRequisition] = useState(() => {
+    const initialAmcName = getInitialAmcName(initialData.amcId, []);
+    return {
+      date: new Date().toISOString().split('T')[0], // Default to today's date
+      item: initialData.item || '',
+      qty: initialData.qty || '',
+      site: initialData.site || '',
+      amcId: initialAmcName, // Use amcname or fallback for display
+      service: initialData.service || '',
+      employee: initialData.employee || '',
+      ...initialData,
+    };
   });
-  const [customers, setCustomers] = useState([]);
-  const [items, setItems] = useState([]);
-  const [error, setError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for existing dropdown options
+  const [existingOptions, setExistingOptions] = useState({
+    item: [],
+    amcId: [],
+    employee: [],
+    site: [],
+  });
 
   // Centralized Axios instance with Bearer token
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
-      setError('Authentication token not found');
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
       return null;
     }
     return axios.create({
@@ -33,397 +53,399 @@ const RecurringInvoiceForm = ({ isOpen, onClose, onInvoiceAdded, isEdit = false,
     });
   };
 
-  // Fetch customer and item data
-  const fetchData = async (endpoint, setter, retryCount = 2) => {
+  // Fetch existing dropdown options
+  const fetchOptions = async (field, retryCount = 2) => {
     const axiosInstance = createAxiosInstance();
     if (!axiosInstance) return;
 
     try {
-      const response = await axiosInstance.get(`${import.meta.env.VITE_BASE_API}/${endpoint}/`);
-      if (!response.data) throw new Error('No data received');
-      setter(response.data);
-    } catch (error) {
-      console.error(`Error fetching ${endpoint}:`, error);
-      if (error.response?.status === 401) {
-        setError('Session expired. Please log in again.');
-      } else if (retryCount > 0 && error.code === 'ERR_NETWORK') {
-        console.log(`Retrying fetch for ${endpoint}... (${retryCount} attempts left)`);
-        setTimeout(() => fetchData(endpoint, setter, retryCount - 1), 2000);
-      } else {
-        setError(`Failed to fetch ${endpoint.replace(/[-]/g, ' ').trim()}.`);
-      }
-    }
-  };
+      const endpoints = {
+        item: 'auth/item-list/',
+        amcId: 'amc/amc-list/',
+        employee: 'auth/employees/',
+        site: 'sales/customer-list/',
+      };
+      const endpoint = endpoints[field];
+      const response = await axiosInstance.get(`${apiBaseUrl}/${endpoint}`);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchData('sales/customer-list', setCustomers);
-      fetchData('auth/item-list', setItems); // Updated to match the provided endpoint
-      if (isEdit && initialData.id) {
-        fetchData(`sales/edit-recurring-invoice/${initialData.id}/`, (data) => {
-          setFormData({
-            customer: data.customer.id || '',
-            profileName: data.profile_name || '',
-            frequency: data.repeat_every || 'week',
-            startDate: data.start_date || '',
-            endDate: data.end_date || '',
-            status: data.status || 'active',
-            item: data.items.length > 0 ? data.items[0].item.id || '' : '', // Use first item's id
-            rate: data.items.length > 0 ? data.items[0].rate || '' : '',
-            qty: data.items.length > 0 ? data.items[0].qty || 1 : 1,
-            tax: data.items.length > 0 ? data.items[0].tax || 0.00 : 0.00,
+      // Log API response for debugging
+      console.log(`Fetched ${field} options raw response:`, response.data);
+
+      // Map API response to dropdown options
+      let mappedOptions = [];
+      if (field === 'item') {
+        mappedOptions = response.data.map(item => ({
+          id: item.id,
+          value: item.name,
+          item_number: item.item_number,
+          name: item.name
+        }));
+      } else if (field === 'amcId') {
+        if (!Array.isArray(response.data)) {
+          console.error('Unexpected AMC data format:', response.data);
+          mappedOptions = [];
+        } else {
+          mappedOptions = response.data.map(amc => {
+            console.log('Mapping AMC:', amc); // Debug individual AMC objects
+            return {
+              id: amc.id,
+              value: amc.amcname || amc.reference_id || 'Unnamed AMC', // Fallback to reference_id
+              amcname: amc.amcname || amc.reference_id || 'Unnamed AMC' // Store for submission
+            };
           });
-        });
+        }
+      } else if (field === 'employee') {
+        mappedOptions = response.data.map(emp => ({
+          id: emp.id,
+          value: emp.name,
+        }));
+      } else if (field === 'site') {
+        mappedOptions = response.data.map(customer => ({
+          id: customer.id,
+          value: customer.site_name,
+          reference_id: customer.reference_id,
+          site_name: customer.site_name
+        }));
+      }
+
+      // Log mapped options for debugging
+      console.log(`Mapped ${field} options:`, mappedOptions);
+
+      setExistingOptions((prev) => {
+        const updatedOptions = {
+          ...prev,
+          [field]: mappedOptions,
+        };
+        // Update amcId in requisition state if initialData has an amcId
+        if (field === 'amcId' && initialData.amcId) {
+          const amcName = getInitialAmcName(initialData.amcId, mappedOptions);
+          setRequisition(prevState => ({
+            ...prevState,
+            amcId: amcName,
+          }));
+        }
+        return updatedOptions;
+      });
+
+      // Update dropdownOptions if setter exists
+      const optionKey = {
+        item: 'itemOptions',
+        amcId: 'amcIdOptions',
+        employee: 'employeeOptions',
+        site: 'siteOptions',
+      }[field];
+      if (dropdownOptions[`set${optionKey.charAt(0).toUpperCase() + optionKey.slice(1)}`]) {
+        dropdownOptions[`set${optionKey.charAt(0).toUpperCase() + optionKey.slice(1)}`](
+          mappedOptions.map(item => item.value)
+        );
+      } else {
+        console.warn(`Setter for ${optionKey} not provided in dropdownOptions`);
+      }
+    } catch (error) {
+      console.error(`Error fetching ${field}:`, error.response ? error.response.data : error.message);
+      if (retryCount > 0 && error.code === 'ERR_NETWORK') {
+        setTimeout(() => fetchOptions(field, retryCount - 1), 2000);
+      } else {
+        toast.error(`Failed to fetch ${field.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}. Check console for details.`);
       }
     }
-  }, [isOpen, isEdit, initialData.id]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
+  // Fetch options on component mount
+  useEffect(() => {
+    const fields = ['item', 'amcId', 'employee', 'site'];
+    fields.forEach(field => fetchOptions(field));
+  }, []);
 
-    // Validate required fields
-    if (!formData.customer || !formData.startDate || !formData.item || !formData.rate) {
-      setError('Customer, Start Date, Item, and Rate are required.');
-      setIsSubmitting(false);
+  // Log existingOptions for debugging
+  useEffect(() => {
+    console.log('Updated existingOptions:', existingOptions);
+  }, [existingOptions]);
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setRequisition((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    const requiredFields = ['item', 'qty', 'site', 'employee', 'date'];
+    const isValid = requiredFields.every((field) => requisition[field]?.trim());
+
+    if (!isValid) {
+      toast.error('Please fill in all required fields (*).');
       return;
     }
 
-    try {
-      const axiosInstance = createAxiosInstance();
-      if (!axiosInstance) throw new Error('Authentication failed');
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
 
-      const payload = {
-        customer: formData.customer,
-        profile_name: formData.profileName,
-        repeat_every: formData.frequency,
-        start_date: formData.startDate,
-        end_date: formData.endDate,
-        status: formData.status,
-        items: [{
-          item: formData.item,
-          rate: parseFloat(formData.rate),
-          qty: parseInt(formData.qty),
-          tax: parseFloat(formData.tax),
-        }],
+    try {
+      const selectedItem = existingOptions.item.find((item) => item.value === requisition.item);
+      const selectedEmployee = existingOptions.employee.find((emp) => emp.value === requisition.employee);
+      const selectedSite = existingOptions.site.find((site) => site.value === requisition.site);
+      const selectedAmc = existingOptions.amcId.find((amc) => amc.value === requisition.amcId);
+
+      if (!selectedItem) {
+        toast.error('Selected item is invalid. Please select an existing item.');
+        return;
+      }
+      if (!selectedEmployee) {
+        toast.error('Selected employee is invalid. Please select an existing employee.');
+        return;
+      }
+      if (!selectedSite) {
+        toast.error('Selected site is invalid. Please select an existing site.');
+        return;
+      }
+      if (selectedAmc && !selectedAmc.amcname) {
+        toast.error('Selected AMC has no valid name. Please select a valid AMC or update backend data.');
+        return;
+      }
+
+      // Create the payload with the correct structure - IDs and amcname
+      const requisitionData = {
+        date: requisition.date,
+        item_id: selectedItem.id,
+        qty: parseInt(requisition.qty, 10),
+        site_id: selectedSite.id,
+        amc_pk: selectedAmc ? selectedAmc.id : null, // Use id for submission
+        amcname: selectedAmc ? selectedAmc.amcname : null, // Include amcname
+        service: requisition.service || '',
+        employee_id: selectedEmployee.id,
+        // status and approve_for are omitted as they will use model defaults
       };
 
-      const url = isEdit && initialData.id
-        ? `${import.meta.env.VITE_BASE_API}/sales/edit-recurring-invoice/${initialData.id}/`
-        : `${import.meta.env.VITE_BASE_API}/sales/add-recurring-invoice/`;
-      const method = isEdit ? 'put' : 'post';
+      console.log('Submitting requisition payload:', requisitionData);
 
-      const response = await axiosInstance[method](url, payload);
-
-      if (!response.data || response.data.message !== 'Recurring Invoice added successfully!') {
-        throw new Error(response.data?.error || 'Failed to save recurring invoice');
-      }
-
-      const result = response.data;
-      // Safeguard to ensure onInvoiceAdded is a function
-      if (typeof onInvoiceAdded === 'function') {
-        onInvoiceAdded({
-          ...result,
-          customerName: result.reference_id || '',
-          frequency: result.repeat_every,
-          lastInvoiceDate: result.last_invoice_date || '',
-          nextInvoiceDate: result.next_invoice_date || result.start_date,
-          status: result.status.toUpperCase(),
-          amount: result.items ? `INR ${parseFloat(result.items.reduce((sum, item) => sum + item.total, 0)).toFixed(2)}` : 'INR 0.00',
-        });
+      let response;
+      if (isEdit) {
+        response = await axiosInstance.put(
+          `${apiBaseUrl}/inventory/edit-requisition/${initialData.id}/`,
+          requisitionData
+        );
+        toast.success('Requisition updated successfully.');
       } else {
-        console.warn('onInvoiceAdded is not a function. Please ensure it is passed correctly from the parent component.');
+        response = await axiosInstance.post(
+          `${apiBaseUrl}/inventory/add-requisition/`,
+          requisitionData
+        );
+        toast.success('Requisition created successfully.');
       }
+
+      // Log the API response for debugging
+      console.log('API response after submission:', response.data);
+
+      onSubmitSuccess();
       onClose();
-      setFormData({
-        customer: '',
-        profileName: '',
-        frequency: 'week',
-        startDate: '',
-        endDate: '',
-        status: 'active',
-        item: '',
-        rate: '',
-        qty: 1,
-        tax: 0.00,
-      });
-    } catch (err) {
-      setError(err.message || 'Failed to submit recurring invoice');
-      console.error('Submission error:', err.response?.data);
-    } finally {
-      setIsSubmitting(false);
+    } catch (error) {
+      console.error(`Error ${isEdit ? 'editing' : 'creating'} requisition:`, error);
+      const errorMsg = error.response?.data?.non_field_errors?.[0] ||
+        Object.entries(error.response?.data || {})
+          .map(([key, value]) => {
+            if (Array.isArray(value)) return `${key}: ${value.join(', ')}`;
+            if (typeof value === 'object' && value !== null) {
+              // Handle nested object errors
+              const nestedErrors = Object.entries(value)
+                .map(([nestedKey, nestedValue]) => `${nestedKey}: ${nestedValue}`)
+                .join(', ');
+              return `${key}: {${nestedErrors}}`;
+            }
+            return `${key}: ${value}`;
+          })
+          .join('; ') ||
+        `Failed to ${isEdit ? 'update' : 'create'} requisition.`;
+      toast.error(errorMsg);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Create Recurring Invoice</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X className="h-6 w-6" />
-          </button>
+    <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* Main Form Modal */}
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
+          <h2 className="text-2xl font-bold text-white">
+            {isEdit ? 'Edit Requisition' : 'Create New Requisition'}
+          </h2>
+          <p className="text-white">
+            Fill in all required fields (*) to {isEdit ? 'update' : 'add'} a requisition
+          </p>
         </div>
 
-        {error && <div className="text-red-500 mb-4">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="max-h-[60vh] overflow-y-auto pr-2">
-            <div className="flex space-x-4 mb-4">
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
-                <select
-                  name="customer"
-                  value={formData.customer}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  required
-                >
-                  <option value="">Select Customer</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.billing_name} (ID: {customer.reference_id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Profile Name *</label>
-                <input
-                  type="text"
-                  name="profileName"
-                  value={formData.profileName}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-4 mb-4">
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Order Number</label>
-                <input
-                  type="text"
-                  name="orderNumber"
-                  value={formData.orderNumber}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Repeat Every *</label>
-                <select
-                  name="frequency"
-                  value={formData.frequency}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="week">Week</option>
-                  <option value="2week">2 Weeks</option>
-                  <option value="month">Month</option>
-                  <option value="2month">2 Months</option>
-                  <option value="3month">3 Months</option>
-                  <option value="6month">6 Months</option>
-                  <option value="year">Year</option>
-                  <option value="2year">2 Years</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex space-x-4 mb-4">
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Next Invoice Date </label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  required
-                />
-              </div>
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Invoice Date</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-4 mb-4">
-              {/* <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sale Person</label>
-                <select
-                  name="salePerson"
-                  value={formData.salePerson}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="">Select Sales Person</option>
-                 
-                </select>
-              </div> */}
-              {/* <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">GST Treatment</label>
-                <select
-                  name="gstTreatment"
-                  value={formData.gstTreatment}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="">Select GST Treatment</option>
-                
-                </select>
-              </div> */}
-            </div>
-
-            <div className="flex space-x-4 mb-4">
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Billing Address</label>
-                <textarea
-                  name="billingAddress"
-                  value={formData.billingAddress}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  rows="4"
-                >
-                  12.9970608 80.220687, Tamil Nadu
-                </textarea>
-                <button
-                  type="button"
-                  onClick={() => {/* Handle change */}}
-                  className="text-blue-500 text-sm mt-1"
-                >
-                  Change
-                </button>
-              </div>
-              <div className="w-1/2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
-                <textarea
-                  name="shippingAddress"
-                  value={formData.shippingAddress}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  rows="4"
-                >
-                  12.9970608 80.220687, Tamil Nadu
-                </textarea>
-                <button
-                  type="button"
-                  onClick={() => {/* Handle change */}}
-                  className="text-blue-500 text-sm mt-1"
-                >
-                  Change
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-gray-100 p-4 rounded-md mb-4">
-              <div className="grid grid-cols-5 gap-4 text-sm font-medium text-gray-700">
-                <div>Item</div>
-                <div>Rate</div>
-                <div>Qty</div>
-                <div>Tax</div>
-                <div>Total</div>
-              </div>
-              <div className="grid grid-cols-5 gap-4 mt-2">
-                <select
-                  name="item"
-                  value={formData.item}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  required
-                >
-                  <option value="">Select Item</option>
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  name="rate"
-                  value={formData.rate}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  step="0.01"
-                  required
-                />
-                <input
-                  type="number"
-                  name="qty"
-                  value={formData.qty}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  min="1"
-                />
-                <input
-                  type="number"
-                  name="tax"
-                  value={formData.tax}
-                  onChange={handleChange}
-                  className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  step="0.01"
-                />
-                <div className="flex items-center">
-                  <span className="text-sm">0.00</span>
-                  <button
-                    type="button"
-                    onClick={() => {/* Handle add item */}}
-                    className="ml-2 text-blue-500"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Uploads File(s) (Max File Size Allowed 1MB)</label>
+        {/* Modal Body */}
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-4">
+            {/* Date */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date <span className="text-red-500">*</span>
+              </label>
               <input
-                type="file"
-                name="uploads"
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-200 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                type="date"
+                name="date"
+                value={requisition.date}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200"
+                required
               />
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`bg-[#243158] text-white px-4 py-2 rounded text-sm ${
-                isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSubmitting ? 'Submitting...' : isEdit ? 'Update Invoice' : 'Save'}
-            </button>
+            {/* Item */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Item <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="item"
+                value={requisition.item}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200 appearance-none bg-white"
+                required
+              >
+                <option value="">Select Item</option>
+                {existingOptions.item.length > 0 ? (
+                  existingOptions.item.map((option) => (
+                    <option key={option.id} value={option.value}>
+                      {option.value}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>Loading...</option>
+                )}
+              </select>
+            </div>
+
+            {/* Quantity */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Quantity <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="qty"
+                value={requisition.qty}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200"
+                required
+              />
+            </div>
+
+            {/* Site */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Site <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="site"
+                value={requisition.site}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200 appearance-none bg-white"
+                required
+              >
+                <option value="">Select Site</option>
+                {existingOptions.site.length > 0 ? (
+                  existingOptions.site.map((option) => (
+                    <option key={option.id} value={option.value}>
+                      {option.value}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>Loading...</option>
+                )}
+              </select>
+            </div>
+
+            {/* AMC ID */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                AMC Name
+              </label>
+              <select
+                name="amcId"
+                value={requisition.amcId}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200 appearance-none bg-white"
+              >
+                <option value="">Select AMC Name</option>
+                {existingOptions.amcId.length > 0 ? (
+                  existingOptions.amcId.map((option) => (
+                    <option key={option.id} value={option.value}>
+                      {option.value} {/* Display amcname or reference_id */}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>Loading...</option>
+                )}
+              </select>
+            </div>
+
+            {/* Service */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Service
+              </label>
+              <input
+                type="text"
+                name="service"
+                value={requisition.service}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200"
+                placeholder="Enter service description"
+              />
+            </div>
+
+            {/* Employee */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Employee <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="employee"
+                value={requisition.employee}
+                onChange={handleInputChange}
+                className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#243158] focus:border-[#243158] transition-all duration-200 appearance-none bg-white"
+                required
+              >
+                <option value="">Select Employee</option>
+                {existingOptions.employee.length > 0 ? (
+                  existingOptions.employee.map((option) => (
+                    <option key={option.id} value={option.value}>
+                      {option.value}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>Loading...</option>
+                )}
+              </select>
+            </div>
           </div>
-        </form>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!requisition.item || !requisition.qty || !requisition.site || !requisition.employee || !requisition.date}
+            className={`px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium transition-all duration-200 shadow-md ${
+              !requisition.item || !requisition.qty || !requisition.site || !requisition.employee || !requisition.date
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:from-[#213066] hover:to-[#182755]'
+            }`}
+          >
+            {isEdit ? 'Update Requisition' : 'Create Requisition'}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-export default RecurringInvoiceForm;
+export default RequisitionForm;

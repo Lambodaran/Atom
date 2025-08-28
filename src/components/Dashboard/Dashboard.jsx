@@ -121,56 +121,54 @@ const DashboardPage = () => {
     const customerCount = safeCustomerData.length;
     const complaintCount = safeComplaintData.length;
 
-    return [
-      { 
-        title: 'AMC Due', 
-        value: amcDue, 
-        change: '8.5% Up', 
-        trend: 'up', 
-        icon: <User className="w-6 h-6 text-[#8280FF]" />,
-        color: '#8280FF'
-      },
-      { 
-        title: 'Income', 
-        value: income, 
-        change: '1.3% Up', 
-        trend: 'up', 
-        icon: <DollarSign className="w-6 h-6 text-[#FEC53D]" />,
-        color: '#FEC53D'
-      },
-      { 
-        title: 'Open Complaints', 
-        value: `${openComplaints}/${totalComplaints}`, 
-        change: '4.3% Down', 
-        trend: 'down', 
-        icon: <AlertTriangle className="w-6 h-6 text-[#4AD991]" />,
-        color: '#4AD991'
-      },
-      { 
-        title: 'Open Invoice', 
-        value: `${openInvoices}/${totalInvoices}`, 
-        change: '1.8% Up', 
-        trend: 'up', 
-        icon: <FileText className="w-6 h-6 text-[#FF9066]" />,
-        color: '#FF9066'
-      },
-      { 
-        title: 'Customer', 
-        value: customerCount, 
-        change: '8.5% Up', 
-        trend: 'up', 
-        icon: <User className="w-6 h-6 text-[#8280FF]" />,
-        color: '#8280FF'
-      },
-      { 
-        title: 'Complaint', 
-        value: complaintCount, 
-        change: '1.3% Up', 
-        trend: 'up', 
-        icon: <AlertTriangle className="w-6 h-6 text-[#FEC53D]" />,
-        color: '#FEC53D'
-      },
-    ];
+    return {
+      firstRow: [
+        { 
+          title: 'AMC Due', 
+          value: amcDue, 
+          change: '8.5% Up', 
+          trend: 'up', 
+          icon: <User className="w-5 h-5 md:w-6 md:h-6 text-purple-500" /> 
+        },
+        { 
+          title: 'Income', 
+          value: income, 
+          change: '1.3% Up', 
+          trend: 'up', 
+          icon: <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-yellow-500" /> 
+        },
+        { 
+          title: 'Open Complaints', 
+          value: `${openComplaints}/${totalComplaints}`, 
+          change: '4.3% Down', 
+          trend: 'down', 
+          icon: <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-green-500" /> 
+        },
+        { 
+          title: 'Open Invoice', 
+          value: `${openInvoices}/${totalInvoices}`, 
+          change: '1.8% Up', 
+          trend: 'up', 
+          icon: <FileText className="w-5 h-5 md:w-6 md:h-6 text-orange-500" /> 
+        }
+      ],
+      secondRow: [
+        { 
+          title: 'Customer', 
+          value: customerCount, 
+          change: '8.5% Up', 
+          trend: 'up', 
+          icon: <User className="w-5 h-5 md:w-6 md:h-6 text-purple-500" /> 
+        },
+        { 
+          title: 'Complaint', 
+          value: complaintCount, 
+          change: '1.3% Up', 
+          trend: 'up', 
+          icon: <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-yellow-500" /> 
+        }
+      ]
+    };
   };
 
   const stats = useMemo(() => calculateStats(), [amcData, customerData, complaintData, invoiceData]);
@@ -179,22 +177,22 @@ const DashboardPage = () => {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
-        label: 'Profit',
+        label: 'Income',
         data: [50, 75, 60, 80, 65, 90, 70],
-        borderColor: '#00B69B', // Figma green
-        backgroundColor: 'rgba(0, 182, 155, 0.2)',
+        borderColor: 'rgb(0, 149, 255)',
+        backgroundColor: 'rgba(0, 149, 255, 0.2)',
         tension: 0.4,
         pointRadius: 3,
-        pointBackgroundColor: '#00B69B',
+        pointBackgroundColor: 'rgb(0, 149, 255)',
       },
       {
-        label: 'Sales',
+        label: 'Services',
         data: [60, 80, 70, 85, 75, 95, 80],
-        borderColor: '#4880FF', // Figma blue
-        backgroundColor: 'rgba(72, 128, 255, 0.2)',
+        borderColor: 'rgb(0, 255, 149)',
+        backgroundColor: 'rgba(0, 255, 149, 0.2)',
         tension: 0.4,
         pointRadius: 3,
-        pointBackgroundColor: '#4880FF',
+        pointBackgroundColor: 'rgb(0, 255, 149)',
       },
     ],
   };
@@ -208,18 +206,14 @@ const DashboardPage = () => {
         position: 'top',
         labels: {
           font: {
-            size: 12,
-            family: 'Nunito Sans',
-            weight: '600',
+            size: 10, // Smaller font size for mobile
           },
-          color: '#202224',
         },
       },
       title: { display: false },
       tooltip: {
         bodyFont: {
-          size: 12,
-          family: 'Nunito Sans',
+          size: 10, // Smaller tooltip font for mobile
         },
       },
     },
@@ -228,11 +222,8 @@ const DashboardPage = () => {
         grid: { display: false },
         ticks: {
           font: {
-            size: 12,
-            family: 'Nunito Sans',
-            weight: '600',
+            size: 10, // Smaller font size for mobile
           },
-          color: 'rgba(41, 44, 47, 0.4)',
         },
       },
       y: {
@@ -241,11 +232,8 @@ const DashboardPage = () => {
         ticks: { 
           stepSize: 25,
           font: {
-            size: 12,
-            family: 'Nunito Sans',
-            weight: '600',
+            size: 10, // Smaller font size for mobile
           },
-          color: 'rgba(41, 44, 47, 0.4)',
         },
         grid: { color: 'rgba(0, 0, 0, 0.1)' },
       },
@@ -254,16 +242,16 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="p-6 flex justify-center items-center bg-[#F5F6FA] min-h-screen">
-        <div className="text-lg font-medium text-gray-600">Loading dashboard data...</div>
+      <div className="p-2 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
+        <div className="text-base sm:text-lg font-medium text-gray-600">Loading dashboard data...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 flex justify-center items-center bg-[#F5F6FA] min-h-screen">
-        <div className="text-lg font-medium text-red-500">{error}</div>
+      <div className="p-2 sm:p-6 flex justify-center items-center bg-gray-50 min-h-screen">
+        <div className="text-base sm:text-lg font-medium text-red-500">{error}</div>
       </div>
     );
   }
@@ -276,54 +264,82 @@ const DashboardPage = () => {
   );
 
   return (
-    <div className="p-6 space-y-6 bg-[#F5F6FA] min-h-screen font-['Nunito_Sans',sans-serif]">
-      <h1 className="text-3xl font-bold text-[#202224] tracking-tight">Dashboard</h1>
+    <div className="p-2 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 min-h-screen">
+      <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Dashboard</h1>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white p-4 rounded-xl shadow-md flex items-center space-x-4" style={{ boxShadow: '6px 6px 54px 0px rgba(0, 0, 0, 0.05)' }}>
-            <div className="w-12 h-12 flex items-center justify-center rounded-full" style={{ backgroundColor: `${stat.color}20` }}>
-              {stat.icon}
-            </div>
+      {/* First Row - 4 cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        {stats.firstRow.map((stat, index) => (
+          <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm flex items-center space-x-3 sm:space-x-4 border border-gray-100">
+            {stat.icon}
             <div>
-              <h3 className="text-gray-500 font-medium text-sm">{stat.title}</h3>
-              <div className="text-2xl font-bold my-1 text-[#202224]">{stat.value}</div>
-              <div className={`text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                {stat.change} {stat.trend === 'up' ? '↑' : '↓'} from {index < 2 ? 'yesterday' : index < 4 ? 'yesterday' : 'past week'}
+              <h3 className="text-gray-500 font-medium text-xs sm:text-sm">{stat.title}</h3>
+              <div className="text-lg sm:text-xl font-bold my-1">{stat.value}</div>
+              <div className={`text-[10px] sm:text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                {stat.change} {stat.trend === 'up' ? '↑' : '↓'} from yesterday
               </div>
             </div>
           </div>
         ))}
-        <div className="bg-white p-4 rounded-xl shadow-md col-span-1 sm:col-span-2 lg:col-span-2 flex items-center space-x-4" style={{ boxShadow: '6px 6px 54px 0px rgba(0, 0, 0, 0.05)' }}>
-          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#727272]20">
-            <Wrench className="w-6 h-6 text-[#727272]" />
-          </div>
-          <div>
-            <h3 className="text-gray-500 font-medium text-sm">AMC Renew in Progress</h3>
-            <div className="text-2xl font-bold my-1 text-[#202224]">
-              {amcData.filter(amc => amc.status === "Pending").length} AMCs pending renewal
+      </div>
+
+      {/* Second and Third Rows Combined */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-6">
+        {/* Left side - Customer and Complaint cards (2 columns) */}
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+          {stats.secondRow.map((stat, index) => (
+            <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm flex items-center space-x-3 sm:space-x-4 border border-gray-100">
+              {stat.icon}
+              <div>
+                <h3 className="text-gray-500 font-medium text-xs sm:text-sm">{stat.title}</h3>
+                <div className="text-lg sm:text-xl font-bold my-1">{stat.value}</div>
+                <div className={`text-[10px] sm:text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                  {stat.change} {stat.trend === 'up' ? '↑' : '↓'} from past week
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {/* Chart placed below Customer and Complaint cards */}
+          <div className="sm:col-span-2 bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-gray-500 font-medium text-xs sm:text-sm mb-3">Weekly Performance</h3>
+            <div className="h-48 sm:h-64">
+              <Line data={graphData} options={graphOptions} />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Graph Section */}
-      <div className="bg-white p-6 rounded-xl shadow-md" style={{ boxShadow: '6px 6px 54px 0px rgba(0, 0, 0, 0.05)' }}>
-        <h3 className="text-xl font-bold text-[#202224] mb-4">Weekly Performance</h3>
-        <div className="h-64">
-          <Line data={graphData} options={graphOptions} />
+        {/* Right side - Extended AMC Renew card (2 columns spanning full height) */}
+        <div className="lg:col-span-2">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100 h-full flex flex-col justify-center">
+            <div className="flex items-start space-x-4 sm:space-x-6 mb-6">
+              <Wrench className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0 mt-2" />
+              <div className="flex-1">
+                <h3 className="text-gray-500 font-medium text-sm sm:text-base mb-3">AMC Renew in Progress</h3>
+                <div className="text-2xl sm:text-3xl font-bold mb-3">
+                  {amcData.filter(amc => amc.status === "Pending").length} AMCs pending renewal
+                </div>
+                <div className="text-sm sm:text-base text-gray-600 mb-2">
+                  Review and process pending renewals to maintain service continuity
+                </div>
+                <div className="text-xs sm:text-sm text-gray-500">
+                  Last updated: {new Date().toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+     
+          </div>
         </div>
       </div>
 
       {/* Complaints Section */}
-      <div className="bg-white p-6 rounded-xl shadow-md" style={{ boxShadow: '6px 6px 54px 0px rgba(0, 0, 0, 0.05)' }}>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-          <h3 className="text-xl font-bold text-[#202224]">New Complaints</h3>
+      <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4">
+          <h3 className="text-gray-500 font-medium text-xs sm:text-sm">New Complaints</h3>
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 mt-2 sm:mt-0 w-full sm:w-auto text-sm font-['Circular_Std',sans-serif] text-gray-600"
+            className="border border-gray-300 rounded px-2 py-1 mt-2 sm:mt-0 w-full sm:w-auto text-sm"
           >
             {months.map(month => (
               <option key={month} value={month}>{month}</option>
@@ -331,34 +347,34 @@ const DashboardPage = () => {
           </select>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[600px] sm:min-w-0">
             <thead>
-              <tr className="bg-[#F1F4F9] rounded-md">
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase rounded-l-md">Print</th>
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase">Subject</th>
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase">Assigned to</th>
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase">Status</th>
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase">Created</th>
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase">Solution</th>
-                <th className="p-3 text-xs font-bold text-[#202224] uppercase rounded-r-md">Remark</th>
+              <tr className="bg-gray-100">
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Print</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Subject</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Assigned to</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Status</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Created</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Solution</th>
+                <th className="p-1 sm:p-2 text-[10px] sm:text-xs">Remark</th>
               </tr>
             </thead>
             <tbody>
               {filteredComplaints.map((complaint) => (
-                <tr key={complaint.id} className="border-t border-gray-100">
-                  <td className="p-3"></td>
-                  <td className="p-3 text-sm text-[#202224] opacity-80">{complaint.subject}</td>
-                  <td className="p-3 text-sm text-[#202224] opacity-80">{complaint.assign_to_name}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                      complaint.solution ? 'text-green-600 bg-green-100' : 'text-yellow-600 bg-yellow-100'
+                <tr key={complaint.id} className="border-t">
+                  <td className="p-1 sm:p-2"></td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.subject}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.assign_to_name}</td>
+                  <td className="p-1 sm:p-2">
+                    <span className={`px-1 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs ${
+                      complaint.solution ? 'text-green-500 bg-green-100' : 'text-yellow-500 bg-yellow-100'
                     }`}>
                       {complaint.solution ? 'Closed' : 'Open'}
                     </span>
                   </td>
-                  <td className="p-3 text-sm text-[#202224] opacity-80">{new Date(complaint.date).toLocaleString()}</td>
-                  <td className="p-3 text-sm text-[#202224] opacity-80">{complaint.solution || '-'}</td>
-                  <td className="p-3 text-sm text-[#202224] opacity-80">{complaint.technician_remark || '-'}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{new Date(complaint.date).toLocaleString()}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.solution || '-'}</td>
+                  <td className="p-1 sm:p-2 text-xs sm:text-sm">{complaint.technician_remark || '-'}</td>
                 </tr>
               ))}
             </tbody>

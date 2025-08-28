@@ -1,4 +1,6 @@
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LoadingScreen from './components/common/LoadingScreen';
 
 
 // dashboard components
@@ -59,8 +61,19 @@ import Signup from './components/Authentication/Signup';
 import ResetPasswordPage from './components/Authentication/ResetPassword';
 
 function App() {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000); // Simulate a 2-second loading time
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <Router>
+      {loading && <LoadingScreen />}
       <Routes>
         {/* Home route */}
         <Route path="/" element={<Home />} />

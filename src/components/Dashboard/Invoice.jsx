@@ -1,3 +1,5 @@
+// Invoice.jsx (updated with handlePrint function and onClick on Printer icon)
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Printer, Trash2, User, Plus } from 'lucide-react';
 import axios from 'axios';
@@ -40,6 +42,33 @@ const Invoice = () => {
   useEffect(() => {
     fetchInvoices();
   }, []);
+
+  const handlePrint = async (id) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_BASE_API}/sales/print-invoice/${id}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'  // Important for handling binary data
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Invoice PDF downloaded successfully.');
+    } catch (error) {
+      toast.error('Failed to download invoice PDF.');
+    }
+  };
 
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this invoice?');
@@ -355,7 +384,7 @@ const Invoice = () => {
                         </td>
                         <td className="p-2 w-[100px] text-left whitespace-nowrap">
                           <div className="flex space-x-2 justify-center">
-                            <Printer className="cursor-pointer hover:text-blue-600" />
+                            <Printer className="cursor-pointer hover:text-blue-600" onClick={() => handlePrint(inv.id)} />
                             <Trash2
                               className="cursor-pointer hover:text-red-600"
                               onClick={() => handleDelete(inv.id)}
@@ -384,7 +413,7 @@ const Invoice = () => {
                         className="h-5 w-5"
                       />
                       <div className="flex space-x-2">
-                        <Printer className="cursor-pointer hover:text-blue-600 h-5 w-5" />
+                        <Printer className="cursor-pointer hover:text-blue-600 h-5 w-5" onClick={() => handlePrint(inv.id)} />
                         <Trash2
                           className="cursor-pointer hover:text-red-600 h-5 w-5"
                           onClick={() => handleDelete(inv.id)}

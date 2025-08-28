@@ -13,6 +13,7 @@ const Items = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false); // New state for dropdown visibility
   const itemsPerPage = 7;
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -54,6 +55,17 @@ const Items = () => {
 
   useEffect(() => {
     fetchItems();
+
+    const handleClickOutside = (event) => {
+      if (event.target.closest('.group') === null) { // Check if click is outside the dropdown button and menu
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleFormSubmit = (newItem) => {
@@ -160,27 +172,33 @@ const Items = () => {
       <div className="flex flex-col md:flex-row justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Items</h1>
         <div className="space-x-4 flex items-center">
-          <div className="relative group">
-            <button className="text-gray-500 hover:text-gray-700 focus:outline-none p-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="text-gray-500 hover:text-gray-700 focus:outline-none p-2"
+              aria-label="More options"
+            >
               <MoreVertical size={20} />
             </button>
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg hidden group-hover:block">
-              <button
-                onClick={handleExport}
-                className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100"
-              >
-                <Download size={16} className="mr-2" /> Export
-              </button>
-              <label className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer">
-                <Upload size={16} className="mr-2" /> Import CSV
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </label>
-            </div>
+            {showDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg block">
+                <button
+                  onClick={() => { handleExport(); setShowDropdown(false); }}
+                  className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100"
+                >
+                  <Download size={16} className="mr-2" /> Export
+                </button>
+                <label className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer">
+                  <Upload size={16} className="mr-2" /> Import CSV
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => { handleImport(e); setShowDropdown(false); }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
           </div>
           <button
             onClick={() => {

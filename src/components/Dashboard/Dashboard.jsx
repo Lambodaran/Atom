@@ -270,9 +270,12 @@ const DashboardPage = () => {
       {/* First Row - 4 cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         {stats.firstRow.map((stat, index) => (
-          <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm flex items-center space-x-3 sm:space-x-4 border border-gray-100">
-            {stat.icon}
-            <div>
+          <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100 relative">
+            {/* Icon positioned in top-right corner */}
+            <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
+              {stat.icon}
+            </div>
+            <div className="pr-8 sm:pr-10">
               <h3 className="text-gray-500 font-medium text-xs sm:text-sm">{stat.title}</h3>
               <div className="text-lg sm:text-xl font-bold my-1">{stat.value}</div>
               <div className={`text-[10px] sm:text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
@@ -288,9 +291,12 @@ const DashboardPage = () => {
         {/* Left side - Customer and Complaint cards (2 columns) */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
           {stats.secondRow.map((stat, index) => (
-            <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm flex items-center space-x-3 sm:space-x-4 border border-gray-100">
-              {stat.icon}
-              <div>
+            <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100 relative">
+              {/* Icon positioned in top-right corner */}
+              <div className="absolute top-3 sm:top-4 right-3 sm:right-4">
+                {stat.icon}
+              </div>
+              <div className="pr-8 sm:pr-10">
                 <h3 className="text-gray-500 font-medium text-xs sm:text-sm">{stat.title}</h3>
                 <div className="text-lg sm:text-xl font-bold my-1">{stat.value}</div>
                 <div className={`text-[10px] sm:text-xs ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
@@ -327,7 +333,6 @@ const DashboardPage = () => {
                 </div>
               </div>
             </div>
-     
           </div>
         </div>
       </div>

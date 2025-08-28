@@ -15,12 +15,14 @@ const Navbar = () => {
           </div>
 
           {/* Navigation Links - Centered */}
-          <div className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2">
+          <div className="hidden md:flex items-center space-x-8 flex-1 justify-center">
             {/* All Products Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setIsProductsOpen(!isProductsOpen)}
                 className="text-gray-800 hover:text-gray-900 flex items-center focus:outline-none"
+                aria-haspopup="true"
+                aria-expanded={isProductsOpen}
               >
                 All Products
                 <svg
@@ -32,7 +34,7 @@ const Navbar = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              
+
               {isProductsOpen && (
                 <div className="absolute z-10 mt-2 w-48 bg-white rounded-md shadow-lg py-1">
                   <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Product 1</a>
@@ -54,7 +56,11 @@ const Navbar = () => {
 
           {/* Right Side Buttons */}
           <div className="flex items-center space-x-4">
-            <Link to="/login" className="text-gray-800 hover:text-gray-900 border rounded-lg p-2">
+            <Link
+              to="/login"
+              className="text-gray-800 hover:text-gray-900 border-t-2 border-transparent md:border-none md:border-t-0 rounded-lg p-2"
+              style={{ borderTopColor: 'transparent' }}
+            >
               Sign In
             </Link>
             <Link 

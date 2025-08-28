@@ -462,14 +462,14 @@ const Lifts = () => {
 
       {/* Filters Section */}
       <div className="bg-white p-3 md:p-4 rounded-lg shadow-lg mb-4 md:mb-6">
-        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9 gap-3 md:gap-4 items-end">
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-9 gap-2 items-end md:w-[1050px]">
           {/* Door Type */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="doorType" 
               value={filters.doorType} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Door Types</option>
               {doorTypeOptions.map(option => (
@@ -479,12 +479,12 @@ const Lifts = () => {
           </div>
 
           {/* Lift Type */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="liftType" 
               value={filters.liftType} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Lift Types</option>
               {liftTypeOptions.map(option => (
@@ -494,12 +494,12 @@ const Lifts = () => {
           </div>
 
           {/* Machine Type */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="machineType" 
               value={filters.machineType} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Machine Types</option>
               {machineTypeOptions.map(option => (
@@ -509,12 +509,12 @@ const Lifts = () => {
           </div>
 
           {/* Floor */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="floorID" 
               value={filters.floorID} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Floors</option>
               {floorOptions.map(option => (
@@ -524,12 +524,12 @@ const Lifts = () => {
           </div>
 
           {/* Brand */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="brand" 
               value={filters.brand} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Brands</option>
               {brandOptions.map(option => (
@@ -539,12 +539,12 @@ const Lifts = () => {
           </div>
 
           {/* Load */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="load" 
               value={filters.load} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Loads</option>
               {[...new Set(lifts.map(lift => lift.load.toString()))].map(option => (
@@ -554,12 +554,12 @@ const Lifts = () => {
           </div>
 
           {/* Passengers */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="noOfPassengers" 
               value={filters.noOfPassengers} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Passengers</option>
               {[...new Set(lifts.map(lift => lift.noOfPassengers))].map(option => (
@@ -569,12 +569,12 @@ const Lifts = () => {
           </div>
 
           {/* Model */}
-          <div className="xl:col-span-1">
+          <div className="md:col-span-1">
             <select 
               name="model" 
               value={filters.model} 
               onChange={handleFilterChange}
-              className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#243158] text-sm md:text-base"
+              className="w-full border border-gray-300 rounded-lg p-1 md:p-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-[#243158]"
             >
               <option value="ALL">All Models</option>
               {modelOptions.map(option => (
@@ -584,18 +584,18 @@ const Lifts = () => {
           </div>
 
           {/* Filter Actions */}
-          <div className="flex flex-row space-x-2 col-span-1 xs:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-1 2xl:col-span-1">
+          <div className="flex flex-row space-x-2 md:col-span-1">
             <button
               onClick={resetFilters}
-              className="flex-1 bg-gray-200 text-gray-700 px-3 md:px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200 text-sm md:text-base"
+              className="flex-1 bg-gray-200 text-gray-700 px-2 md:px-3 py-1 md:py-1.5 rounded-lg hover:bg-gray-300 transition duration-200 text-xs md:text-sm"
             >
               Reset
             </button>
             <button
               onClick={() => setCurrentPage(1)}
-              className="flex-1 bg-[#243158] text-white px-3 md:px-4 py-2 rounded-lg hover:bg-[#0f131d] transition duration-200 text-sm md:text-base flex items-center justify-center"
+              className="flex-1 bg-[#243158] text-white px-2 md:px-3 py-1 md:py-1.5 rounded-lg hover:bg-[#0f131d] transition duration-200 text-xs md:text-sm flex items-center justify-center"
             >
-              <Search className="w-4 h-4 mr-1" />
+              <Search className="w-3 h-3 md:w-4 md:h-4 mr-1" />
               <span>Search</span>
             </button>
           </div>

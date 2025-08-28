@@ -314,7 +314,7 @@ const AMCForm = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
         <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] px-6 py-4">
           <h2 className="text-xl font-bold text-white">

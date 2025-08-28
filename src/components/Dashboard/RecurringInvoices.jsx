@@ -1,4 +1,3 @@
-// RecurringInvoices.jsx
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Pencil, Calendar, Search } from 'lucide-react';
 import RecurringInvoiceForm from '../Dashboard/Forms/RecurringInvoiceForm';
@@ -153,192 +152,184 @@ const RecurringInvoices = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Recurring Invoices</h1>
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-6">Recurring Invoices</h1>
         
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search recurring invoices..."
+              placeholder="Search invoices..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
             />
           </div>
           
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button
               onClick={handleExport}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm w-full sm:w-auto"
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm sm:text-base w-full sm:w-auto hover:bg-gray-300 transition-colors"
             >
               Export
             </button>
             <button
               onClick={() => { setSelectedInvoice(null); setIsFormOpen(true); }}
-              className="bg-[#243158] text-white px-4 py-2 rounded text-sm flex items-center justify-center w-full sm:w-auto"
+              className="bg-[#243158] text-white px-4 py-2 rounded text-sm sm:text-base flex items-center justify-center w-full sm:w-auto hover:bg-[#1e2a44] transition-colors"
             >
-              <Plus className="h-4 w-4 mr-2" /> Create Recurring Invoice
+              <Plus className="h-4 w-4 mr-2" /> Create
             </button>
           </div>
         </div>
         
-        {loading && <div className="text-center text-gray-500">Loading...</div>}
-        {error && <div className="bg-red-100 text-red-700 p-4 rounded mb-4">{error}</div>}
+        {loading && <div className="text-center text-gray-500 text-sm sm:text-base">Loading...</div>}
+        {error && <div className="bg-red-100 text-red-700 p-3 sm:p-4 rounded mb-4 text-sm sm:text-base">{error}</div>}
         
         {/* Desktop Table */}
-        {!loading && !error && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="grid grid-cols-7 bg-gray-100 p-4 text-xs text-gray-700 uppercase tracking-wider">
-              <div className="text-left">Customer</div>
-              <div className="text-left">Profile</div>
-              <div className="text-center">Frequency</div>
-              <div className="text-center">Last Invoice</div>
-              <div className="text-center">Next Invoice</div>
-              <div className="text-center">Status</div>
-              <div className="text-right">Amount / Actions</div>
+        <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+          <div className="grid grid-cols-7 bg-gray-100 p-3 sm:p-4 text-xs sm:text-sm text-gray-700 uppercase tracking-wider">
+            <div className="text-left">Customer</div>
+            <div className="text-left">Profile</div>
+            <div className="text-center">Frequency</div>
+            <div className="text-center">Last Invoice</div>
+            <div className="text-center">Next Invoice</div>
+            <div className="text-center">Status</div>
+            <div className="text-right">Amount / Actions</div>
+          </div>
+          
+          {filteredInvoices.length > 0 ? (
+            filteredInvoices.map((invoice) => {
+              const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
+              return (
+                <div key={invoice.id} className="grid grid-cols-7 p-3 sm:p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
+                  <div className="text-left font-medium truncate" title={invoice.customerName}>
+                    {invoice.customerName}
+                  </div>
+                  <div className="text-left truncate" title={invoice.profileName}>
+                    {invoice.profileName}
+                  </div>
+                  <div className="text-center">{invoice.frequency}</div>
+                  <div className="text-center">{formatDate(invoice.lastInvoiceDate)}</div>
+                  <div className="text-center font-medium text-blue-600">
+                    {formatDate(invoice.nextInvoiceDate)}
+                  </div>
+                  <div className="text-center">
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs sm:text-sm font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
+                      {invoice.status}
+                    </span>
+                  </div>
+                  <div className="text-right flex items-center justify-end space-x-2">
+                    <span className="font-medium">{invoice.amount}</span>
+                    <button
+                      onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
+                      className="text-gray-400 hover:text-blue-600 p-1"
+                      title="Edit invoice"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                    {isDue && (
+                      <button
+                        onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
+                        className="text-gray-400 hover:text-green-600 p-1"
+                        title="Generate invoice"
+                      >
+                        <Calendar className="h-5 w-5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(invoice.id)}
+                      className="text-gray-400 hover:text-red-600 p-1"
+                      title="Delete invoice"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-6 sm:p-8 text-center text-gray-500 text-sm sm:text-base">
+              No recurring invoices found.
             </div>
-            
-            {filteredInvoices.length > 0 ? (
-              filteredInvoices.map((invoice) => {
-                const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
-                return (
-                  <div key={invoice.id} className="grid grid-cols-7 p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
-                    <div className="text-left font-medium truncate" title={invoice.customerName}>
+          )}
+        </div>
+        
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-3">
+          {filteredInvoices.length > 0 ? (
+            filteredInvoices.map((invoice) => {
+              const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
+              return (
+                <div key={invoice.id} className="bg-white rounded-lg shadow p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base" title={invoice.customerName}>
                       {invoice.customerName}
+                    </h3>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs sm:text-sm font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
+                      {invoice.status}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Profile:</span>
+                      <span className="font-medium truncate">{invoice.profileName}</span>
                     </div>
-                    <div className="text-left truncate" title={invoice.profileName}>
-                      {invoice.profileName}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Frequency:</span>
+                      <span>{invoice.frequency}</span>
                     </div>
-                    <div className="text-center">{invoice.frequency}</div>
-                    <div className="text-center">{formatDate(invoice.lastInvoiceDate)}</div>
-                    <div className="text-center font-medium text-blue-600">
-                      {formatDate(invoice.nextInvoiceDate)}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Last Invoice:</span>
+                      <span>{formatDate(invoice.lastInvoiceDate)}</span>
                     </div>
-                    <div className="text-center">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
-                        {invoice.status}
-                      </span>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Next Invoice:</span>
+                      <span className="font-medium text-blue-600">{formatDate(invoice.nextInvoiceDate)}</span>
                     </div>
-                    <div className="text-right flex items-center justify-end space-x-2">
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                      <span className="text-gray-500">Amount:</span>
                       <span className="font-medium">{invoice.amount}</span>
+                    </div>
+                    <div className="flex justify-end space-x-3 pt-3">
                       <button
                         onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
-                        className="text-gray-400 hover:text-blue-600"
+                        className="text-gray-400 hover:text-blue-600 p-1"
                         title="Edit invoice"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-6 w-6" />
                       </button>
                       {isDue && (
                         <button
                           onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
-                          className="text-gray-400 hover:text-green-600"
+                          className="text-gray-400 hover:text-green-600 p-1"
                           title="Generate invoice"
                         >
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-6 w-6" />
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(invoice.id)}
-                        className="text-gray-400 hover:text-red-600"
+                        className="text-gray-400 hover:text-red-600 p-1"
                         title="Delete invoice"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-6 w-6" />
                       </button>
                     </div>
                   </div>
-                );
-              })
-            ) : (
-              <div className="p-8 text-center text-gray-500">
-                No recurring invoices found.
-              </div>
-            )}
-          </div>
-        )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm sm:text-base">
+              No recurring invoices found.
+            </div>
+          )}
+        </div>
         
-        {/* Mobile Cards */}
-        {!loading && !error && (
-          <div className="md:hidden space-y-4">
-            {filteredInvoices.length > 0 ? (
-              filteredInvoices.map((invoice) => {
-                const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
-                return (
-                  <div key={invoice.id} className="bg-white rounded-lg shadow p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="font-medium text-gray-900 truncate" title={invoice.customerName}>
-                        {invoice.customerName}
-                      </h3>
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}`}>
-                        {invoice.status}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Profile:</span>
-                        <span className="font-medium">{invoice.profileName}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Frequency:</span>
-                        <span>{invoice.frequency}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Last Invoice:</span>
-                        <span>{formatDate(invoice.lastInvoiceDate)}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Next Invoice:</span>
-                        <span className="font-medium text-blue-600">{formatDate(invoice.nextInvoiceDate)}</span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                        <span className="text-gray-500">Amount:</span>
-                        <span className="font-medium">{invoice.amount}</span>
-                      </div>
-                      <div className="flex justify-end space-x-2 pt-2">
-                        <button
-                          onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
-                          className="text-gray-400 hover:text-blue-600"
-                          title="Edit invoice"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        {isDue && (
-                          <button
-                            onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
-                            className="text-gray-400 hover:text-green-600"
-                            title="Generate invoice"
-                          >
-                            <Calendar className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(invoice.id)}
-                          className="text-gray-400 hover:text-red-600"
-                          title="Delete invoice"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                No recurring invoices found.
-              </div>
-            )}
-          </div>
-        )}
-        
-        <div className="text-sm text-gray-500 mt-4 text-center">
+        <div className="text-xs sm:text-sm text-gray-500 mt-4 text-center">
           Showing {filteredInvoices.length} of {recurringInvoices.length} invoices
         </div>
 

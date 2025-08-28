@@ -158,7 +158,9 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
       transition-all duration-300
       border-r border-gray-200
       shadow-sm
-    `}>
+    `}
+    style={{ fontFamily: 'sans-serif' }}
+    >
       {/* Logo Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-center h-16">
         {isCollapsed ? (

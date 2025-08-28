@@ -76,8 +76,8 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
     },    
     { name: 'Complaints', icon: <img src={complaintsImg} alt="Complaints" className="h-5 w-5" />, path: '/dashboard/complaints', key: 'complaints' },
     { name: 'Monthly Load', icon: <img src={monthlyLoadImg} alt="Monthly Load" className="h-5 w-5" />, path: '/dashboard/monthly-load', key: 'monthly-load' },
-    { name: 'Services Schedule', icon: <img src={routineServicesImg} alt="Services Schedule" className="h-5 w-5" />, path: '/dashboard/services-schedule', key: 'services-schedule' },
-    { name: 'Material Request', icon: <img src={inventoryImg} alt="Material Request" className="h-5 w-5" />, path: '/dashboard/material-request', key: 'material-request' },
+    { name: 'Services Schedule', icon: <img src={monthlyLoadImg} alt="Services Schedule" className="h-5 w-5" />, path: '/dashboard/services-schedule', key: 'services-schedule' },
+    { name: 'Material Request', icon: <img src={monthlyLoadImg} alt="Material Request" className="h-5 w-5" />, path: '/dashboard/material-request', key: 'material-request' },
     {
       name: 'Inventory',
       icon: <img src={inventoryImg} alt="Inventory" className="h-5 w-5" />,

@@ -12,6 +12,11 @@ import {
   Legend,
 } from 'chart.js';
 
+import ComplaintIcon from "../../assets/ComplaintIcon.jpeg"
+import IncomeIcon from "../../assets/IncomeIcon.jpeg"
+import Invoice from "../../assets/Invoice.jpeg"
+import UserIcon from "../../assets/UserIcon.jpeg"
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const DashboardPage = () => {
@@ -128,28 +133,28 @@ const DashboardPage = () => {
           value: amcDue, 
           change: '8.5% Up', 
           trend: 'up', 
-          icon: <User className="w-5 h-5 md:w-6 md:h-6 text-purple-500" /> 
+          icon:  <img src={UserIcon} className="w-5 h-5 md:w-6 md:h-6" style={{ color: '#6B46C1' }} alt="User Icon" />,
         },
         { 
           title: 'Income', 
           value: income, 
           change: '1.3% Up', 
           trend: 'up', 
-          icon: <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-yellow-500" /> 
+          icon: <img src={IncomeIcon} className="w-5 h-5 md:w-6 md:h-6" style={{ color: '#D69E2E' }} alt="Income Icon" />
         },
         { 
           title: 'Open Complaints', 
           value: `${openComplaints}/${totalComplaints}`, 
           change: '4.3% Down', 
           trend: 'down', 
-          icon: <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-green-500" /> 
+          icon: <img src={ComplaintIcon} className="w-5 h-5 md:w-6 md:h-6" style={{ color: '#48BB78' }} alt="Complaint Icon" />,
         },
         { 
           title: 'Open Invoice', 
           value: `${openInvoices}/${totalInvoices}`, 
           change: '1.8% Up', 
           trend: 'up', 
-          icon: <FileText className="w-5 h-5 md:w-6 md:h-6 text-orange-500" /> 
+          icon: <img src={Invoice} className="w-5 h-5 md:w-6 md:h-6" style={{ color: '#F6AD55' }} alt="Invoice Icon" />
         }
       ],
       secondRow: [
@@ -158,14 +163,14 @@ const DashboardPage = () => {
           value: customerCount, 
           change: '8.5% Up', 
           trend: 'up', 
-          icon: <User className="w-5 h-5 md:w-6 md:h-6 text-purple-500" /> 
+          icon: <img src={UserIcon} className="w-5 h-5 md:w-6 md:h-6" style={{ color: '#6B46C1' }} alt="User Icon" />
         },
         { 
           title: 'Complaint', 
           value: complaintCount, 
           change: '1.3% Up', 
           trend: 'up', 
-          icon: <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-yellow-500" /> 
+          icon:  <img src={IncomeIcon} className="w-5 h-5 md:w-6 md:h-6" style={{ color: '#D69E2E' }} alt="Income Icon" />
         }
       ]
     };

@@ -1,4 +1,3 @@
-// Items.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import NewItemForm from '../Dashboard/Forms/NewItemForm';
@@ -13,7 +12,7 @@ const Items = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [showDropdown, setShowDropdown] = useState(false); // New state for dropdown visibility
+  const [showDropdown, setShowDropdown] = useState(false);
   const itemsPerPage = 7;
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -57,7 +56,7 @@ const Items = () => {
     fetchItems();
 
     const handleClickOutside = (event) => {
-      if (event.target.closest('.group') === null) { // Check if click is outside the dropdown button and menu
+      if (event.target.closest('.group') === null) {
         setShowDropdown(false);
       }
     };
@@ -71,14 +70,12 @@ const Items = () => {
   const handleFormSubmit = (newItem) => {
     setItems((prev) => {
       if (editingItem) {
-        // Update existing item
         return prev.map((item) =>
           item.id === newItem.id
             ? { ...newItem, item_number: item.item_number, make_value: newItem.make_value, type_value: newItem.type_value, unit_value: newItem.unit_value }
             : item
         );
       } else {
-        // Add new item
         return [...prev, { ...newItem, item_number: newItem.item_number || `PART${1000 + newItem.id}` }];
       }
     });
@@ -105,7 +102,7 @@ const Items = () => {
     try {
       await axiosInstance.delete(`${apiBaseUrl}/auth/delete-item/${id}/`);
       toast.success('Item deleted successfully!');
-      fetchItems(); // Refresh the item list
+      fetchItems();
     } catch (error) {
       console.error('Error deleting item:', error);
       if (error.response?.status === 401) {
@@ -160,7 +157,7 @@ const Items = () => {
         },
       });
       toast.success('Items imported successfully!');
-      fetchItems(); // Refresh the item list
+      fetchItems();
     } catch (error) {
       console.error('Error importing items:', error);
       toast.error(error.response?.data?.error || 'Failed to import items. Please check the file or try again.');
@@ -237,7 +234,11 @@ const Items = () => {
                   <td className="p-4 text-gray-800">{item.unit_value || 'N/A'}</td>
                   <td className="p-4 text-gray-800">{item.sale_price}</td>
                   <td className="p-4 text-gray-800">{item.tax_preference}</td>
-                  <td className="p-4 text-gray-800">{item.igst || item.gst || 'N/A'}</td>
+                  <td className="p-4 text-gray-800">
+                    {item.igst && item.igst !== "0.00" ? `IGST: ${item.igst}` : ""}
+                    {item.gst && item.gst !== "0.00" ? (item.igst && item.igst !== "0.00" ? `, GST: ${item.gst}` : `GST: ${item.gst}`) : ""}
+                    {(item.igst === "0.00" || !item.igst) && (item.gst === "0.00" || !item.gst) ? "0.00" : ""}
+                  </td>
                   <td className="p-4 flex space-x-2">
                     <button
                       className="text-blue-500 hover:text-blue-700"
@@ -269,7 +270,11 @@ const Items = () => {
               <div className="text-gray-800">Units: {item.unit_value || 'N/A'}</div>
               <div className="text-gray-800">Sale Price: {item.sale_price}</div>
               <div className="text-gray-800">Tax Preference: {item.tax_preference}</div>
-              <div className="text-gray-800">Tax: {item.igst || item.gst || 'N/A'}</div>
+              <div className="text-gray-800">Tax: 
+                {item.igst && item.igst !== "0.00" ? `IGST: ${item.igst}` : ""}
+                {item.gst && item.gst !== "0.00" ? (item.igst && item.igst !== "0.00" ? `, GST: ${item.gst}` : `GST: ${item.gst}`) : ""}
+                {(item.igst === "0.00" || !item.igst) && (item.gst === "0.00" || !item.gst) ? "0.00" : ""}
+              </div>
               <div className="p-2 flex space-x-2">
                 <button
                   className="text-blue-500 hover:text-blue-700"

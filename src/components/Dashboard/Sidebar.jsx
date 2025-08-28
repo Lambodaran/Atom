@@ -1,31 +1,18 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home,
-  Settings,
-  Package,
-  FileText,
-  Calendar,
-  DollarSign,
-  Wrench,
-  AlertCircle,
-  BarChart2,
-  CalendarCheck,
-  ClipboardList,
-  Warehouse,
-  FileBarChart2,
-  User,
-  LogOut,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  CreditCard,
-  Repeat,
-  FileBadge,
-  ShoppingCart,
-  ClipboardCheck,
-} from 'lucide-react';
 import { useState } from 'react';
 import logo from '../../assets/logo.png';
+import amcImg from '../../assets/amc.jpeg';
+import complaintsImg from '../../assets/complaints.jpeg';
+import customerLicenseImg from '../../assets/customer_license.jpeg';
+import dashboardImg from '../../assets/dashboard.jpeg';
+import inventoryImg from '../../assets/inventory.jpeg';
+import itemImg from '../../assets/items.jpeg';
+import liftImg from '../../assets/lift.jpeg';
+import monthlyLoadImg from '../../assets/monthlyload.jpeg';
+import reportsImg from '../../assets/reports.jpeg';
+import routineServicesImg from '../../assets/routine_services.jpeg';
+import salesImg from '../../assets/sales.jpeg';
+import { ChevronDown, ChevronUp, User, LogOut, Users, CreditCard, Repeat, FileBadge, ShoppingCart, ClipboardList, ClipboardCheck } from 'lucide-react';
 
 const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
   const location = useLocation();
@@ -33,16 +20,18 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
     amc: false,
     sales: false,
     routineServices: false,
+    inventory: false,
+    reports: false,
   });
 
   const menuItems = [
-    { name: 'Dashboard', icon: <Home className="h-5 w-5" />, path: '/dashboard', key: 'dashboard' },
-    { name: 'Lifts', icon: <Settings className="h-5 w-5" />, path: '/dashboard/lifts', key: 'lifts' },
-    { name: 'Items', icon: <Package className="h-5 w-5" />, path: '/dashboard/items', key: 'items' },
-    { name: 'Customer License', icon: <FileText className="h-5 w-5" />, path: '/dashboard/customer-license', key: 'customer-license' },
+    { name: 'Dashboard', icon: <img src={dashboardImg} alt="Dashboard" className="h-5 w-5" />, path: '/dashboard', key: 'dashboard' },
+    { name: 'Lifts', icon: <img src={liftImg} alt="Lifts" className="h-5 w-5" />, path: '/dashboard/lifts', key: 'lifts' },
+    { name: 'Items', icon: <img src={itemImg} alt="Items" className="h-5 w-5" />, path: '/dashboard/items', key: 'items' },
+    { name: 'Customer License', icon: <img src={customerLicenseImg} alt="Customer License" className="h-5 w-5" />, path: '/dashboard/customer-license', key: 'customer-license' },
     { 
       name: 'AMC', 
-      icon: <Calendar className="h-5 w-5" />, 
+      icon: <img src={amcImg} alt="AMC" className="h-5 w-5" />, 
       path: '/amc', 
       key: 'amc',
       subItems: [
@@ -54,14 +43,14 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
     },
     {
       name: 'Sales',
-      icon: <ShoppingCart className="h-5 w-5" />,
+      icon: <img src={salesImg} alt="Sales" className="h-5 w-5" />,
       key: 'sales',
       subItems: [
         { name: 'Customers', icon: <Users className="h-5 w-5" />, path: '/dashboard/customers', key: 'customers' },
-        { name: 'Delivery Challan', icon: <Package className="h-5 w-5" />, path: '/dashboard/delivery-challan', key: 'delivery-challan' },
-        { name: 'Quotation', icon: <FileText className="h-5 w-5" />, path: '/dashboard/quotation', key: 'quotation' },
+        { name: 'Delivery Challan', icon: <ShoppingCart className="h-5 w-5" />, path: '/dashboard/delivery-challan', key: 'delivery-challan' },
+        { name: 'Quotation', icon: <ClipboardList className="h-5 w-5" />, path: '/dashboard/quotation', key: 'quotation' },
         { name: 'Orders', icon: <ClipboardList className="h-5 w-5" />, path: '/dashboard/orders', key: 'orders' },
-        { name: 'Invoice', icon: <FileText className="h-5 w-5" />, path: '/dashboard/invoice', key: 'invoice' },
+        { name: 'Invoice', icon: <ClipboardList className="h-5 w-5" />, path: '/dashboard/invoice', key: 'invoice' },
         { name: 'Payment Received', icon: <CreditCard className="h-5 w-5" />, path: '/dashboard/payment-received', key: 'paymentReceived' },
         { name: 'Recurring Invoices', icon: <Repeat className="h-5 w-5" />, path: '/dashboard/recurring-invoices', key: 'recurringInvoices' },
         // { name: 'Credit Notes', icon: <FileBadge className="h-5 w-5" />, path: '/dashboard/credit-notes', key: 'creditNotes' },
@@ -69,7 +58,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
     },
     {
       name: 'Routine Services',
-      icon: <Wrench className="h-5 w-5" />,
+      icon: <img src={routineServicesImg} alt="Routine Services" className="h-5 w-5" />,
       path: '/routine-services',
       key: 'routine-services',
       subItems: [
@@ -85,35 +74,39 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
         { name: 'Pending Assign', path: '/dashboard/pending-assign', key: 'routine-pending-assign' },
       ],
     },    
-    { name: 'Complaints', icon: <AlertCircle className="h-5 w-5" />, path: '/dashboard/complaints', key: 'complaints' },
-    { name: 'Monthly Load', icon: <BarChart2 className="h-5 w-5" />, path: '/dashboard/monthly-load', key: 'monthly-load' },
-    { name: 'Services Schedule', icon: <CalendarCheck className="h-5 w-5" />, path: '/dashboard/services-schedule', key: 'services-schedule' },
-    { name: 'Material Request', icon: <ClipboardList className="h-5 w-5" />, path: '/dashboard/material-request', key: 'material-request' },
-    { name: 'Inventory', icon: <Warehouse className="h-5 w-5" />, path: '/dashboard/inventory', key: 'inventory',
-        subItems: [
-          { name: 'Requisition', path: '/dashboard/requisition', key: 'requisition', icon: <ClipboardList className="h-4 w-4" /> },
-          { name: 'Stock Register', path: '/dashboard/stock-register', key: 'stock-register', icon: <ClipboardCheck className="h-4 w-4" /> }
-        ],
-      },
-   {
-  name: 'Reports',
-  icon: <FileText className="h-5 w-5" />, // Using FileText for the main Reports icon
-  path: '/reports',
-  key: 'reports',
-  subItems: [
-    { name: 'Complaint', path: '/dashboard/complaint-report', key: 'report-complaint' },
-    { name: 'Life Wise Complaint', path: '/dashboard/life-wise-complaint', key: 'report-life-wise-complaint' },
-    { name: 'AMC', path: '/dashboard/amc-report', key: 'report-amc' },
-    { name: 'Routine Services', path: '/dashboard/routine-services-report', key: 'report-routine-services' },
-    { name: 'AMC Next Payment Due', path: '/dashboard/amc-next-payment-due-report', key: 'report-amc-next-payment-due' },
-    { name: 'Invoice', path: '/dashboard/invoice-report', key: 'report-invoice' },
-    { name: 'Payment', path: '/dashboard/payment-report', key: 'report-payment' },
-    { name: 'Quotation', path: '/dashboard/quotation-report', key: 'report-quotation' },
-    { name: 'Expiring', path: '/dashboard/expiring-report', key: 'report-expiring' },
-    { name: 'No. of Expired Free Warranty', path: '/dashboard/expired-free-warranty-report', key: 'report-expired-free-warranty' },
-  ],
-},
-    { name: 'Employees', icon: <Users className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
+    { name: 'Complaints', icon: <img src={complaintsImg} alt="Complaints" className="h-5 w-5" />, path: '/dashboard/complaints', key: 'complaints' },
+    { name: 'Monthly Load', icon: <img src={monthlyLoadImg} alt="Monthly Load" className="h-5 w-5" />, path: '/dashboard/monthly-load', key: 'monthly-load' },
+    { name: 'Services Schedule', icon: <img src={routineServicesImg} alt="Services Schedule" className="h-5 w-5" />, path: '/dashboard/services-schedule', key: 'services-schedule' },
+    { name: 'Material Request', icon: <img src={inventoryImg} alt="Material Request" className="h-5 w-5" />, path: '/dashboard/material-request', key: 'material-request' },
+    {
+      name: 'Inventory',
+      icon: <img src={inventoryImg} alt="Inventory" className="h-5 w-5" />,
+      path: '/dashboard/inventory',
+      key: 'inventory',
+      subItems: [
+        { name: 'Requisition', path: '/dashboard/requisition', key: 'requisition', icon: <ClipboardList className="h-4 w-4" /> },
+        { name: 'Stock Register', path: '/dashboard/stock-register', key: 'stock-register', icon: <ClipboardCheck className="h-4 w-4" /> },
+      ],
+    },
+    {
+      name: 'Reports',
+      icon: <img src={reportsImg} alt="Reports" className="h-5 w-5" />,
+      path: '/reports',
+      key: 'reports',
+      subItems: [
+        { name: 'Complaint', path: '/dashboard/complaint-report', key: 'report-complaint' },
+        { name: 'Life Wise Complaint', path: '/dashboard/life-wise-complaint', key: 'report-life-wise-complaint' },
+        { name: 'AMC', path: '/dashboard/amc-report', key: 'report-amc' },
+        { name: 'Routine Services', path: '/dashboard/routine-services-report', key: 'report-routine-services' },
+        { name: 'AMC Next Payment Due', path: '/dashboard/amc-next-payment-due-report', key: 'report-amc-next-payment-due' },
+        { name: 'Invoice', path: '/dashboard/invoice-report', key: 'report-invoice' },
+        { name: 'Payment', path: '/dashboard/payment-report', key: 'report-payment' },
+        { name: 'Quotation', path: '/dashboard/quotation-report', key: 'report-quotation' },
+        { name: 'Expiring', path: '/dashboard/expiring-report', key: 'report-expiring' },
+        { name: 'No. of Expired Free Warranty', path: '/dashboard/expired-free-warranty-report', key: 'report-expired-free-warranty' },
+      ],
+    },
+    { name: 'Employees', icon: <img src={dashboardImg} alt="Employees" className="h-5 w-5" />, path: '/dashboard/employees', key: 'employees' },
   ];
 
   const toggleMenuExpand = (key) => {
@@ -128,40 +121,34 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
   };
 
   const handleLogout = async (e) => {
-  e.preventDefault();
-  
-  try {
-    // Clear client-side storage
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // Optional: Make API call to logout if your backend requires it
-    // await axios.post('/api/auth/logout', {}, { withCredentials: true });
-    
-    // Redirect to login page
-    window.location.href = '/login';
-    
-    // Close mobile sidebar if open
-    if (isMobile) {
-      toggleSidebar();
+    e.preventDefault();
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/login';
+      if (isMobile) {
+        toggleSidebar();
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
     }
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-};
+  };
 
   return (
     <div className={`
-      h-full bg-white text-gray-800 flex flex-col
+      h-full bg-white text-gray-800 flex flex-col font-poppins
       ${isCollapsed ? 'w-14' : 'w-56'} 
       ${isMobile ? 'fixed z-50' : 'relative'}
       transition-all duration-300
       border-r border-gray-200
       shadow-sm
-    `}
-    style={{ fontFamily: 'sans-serif' }}
-    >
-      {/* Logo Header */}
+    `}>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+        .font-poppins {
+          font-family: 'Poppins';
+        }
+      `}</style>
       <div className="p-4 border-b border-gray-200 flex items-center justify-center h-16">
         {isCollapsed ? (
           <img src={logo} alt="Logo" className="h-10 w-10 object-contain" />
@@ -170,7 +157,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
         )}
       </div>
 
-      {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-1">
           {menuItems.map((item) => (
@@ -215,7 +201,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
                             `}
                           >
                             <span className={`mr-3 ${location.pathname === subItem.path ? 'text-white' : 'text-gray-600'}`}>
-                              {item.key === 'sales' ? subItem.icon : item.icon}
+                              {item.key === 'sales' || item.key === 'inventory' ? subItem.icon : item.icon}
                             </span>
                             <span className="whitespace-nowrap text-sm font-medium">
                               {subItem.name}
@@ -252,7 +238,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
         </ul>
       </nav>
 
-      {/* Bottom Links */}
       <div className="p-2 border-t border-gray-200">
         <Link
           to="/dashboard/profile"
@@ -266,21 +251,21 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
           <User className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 text-gray-600 ${location.pathname === '/profile' ? 'text-white' : ''}`} />
           {!isCollapsed && <span className="text-sm font-medium">Profile</span>}
         </Link>
-      <Link
-  to="/login"
-  onClick={(e) => {
-    handleLogout(e);
-    if (isMobile) toggleSidebar();
-  }}
-  className={`
-    flex items-center p-3 mx-2 rounded-md hover:bg-[#243158] hover:text-white
-    ${isCollapsed ? 'justify-center' : 'px-4'}
-    ${location.pathname === '/logout' ? 'bg-[#243158] text-white' : ''}
-  `}
->
-  <LogOut className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 text-gray-600 ${location.pathname === '/logout' ? 'text-white' : ''}`} />
-  {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
-</Link>
+        <Link
+          to="/login"
+          onClick={(e) => {
+            handleLogout(e);
+            if (isMobile) toggleSidebar();
+          }}
+          className={`
+            flex items-center p-3 mx-2 rounded-md hover:bg-[#243158] hover:text-white
+            ${isCollapsed ? 'justify-center' : 'px-4'}
+            ${location.pathname === '/logout' ? 'bg-[#243158] text-white' : ''}
+          `}
+        >
+          <LogOut className={`${isCollapsed ? '' : 'mr-3'} h-5 w-5 text-gray-600 ${location.pathname === '/logout' ? 'text-white' : ''}`} />
+          {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
+        </Link>
       </div>
     </div>
   );

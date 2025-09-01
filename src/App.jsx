@@ -3,6 +3,13 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LoadingScreen from './components/common/LoadingScreen';
 
 
+//dashboard selection components
+import DashboardSelection from './components/Dashboard selection/DashboardSelection';
+import SelectionSidebar from './components/Dashboard selection/Sidebar';
+import SelectionNavbar from './components/Dashboard selection/Navbar';
+import SelectionHome from './components/Dashboard selection/Home';
+
+
 // dashboard components
 import DashboardLayout from './components/Dashboard/DashboardLayout';
 import DashboardPage from './components/Dashboard/Dashboard';
@@ -77,6 +84,13 @@ function App() {
       <Routes>
         {/* Home route */}
         <Route path="/" element={<Home />} />
+
+
+        {/* Dashboard selection routes */}  
+        <Route element={<DashboardSelection/>}>
+          <Route path="/dashboard-selection" element={<SelectionHome />} />
+        </Route>
+
 
         {/* Wrap dashboard routes with the layout */}
         <Route element={<DashboardLayout />}>

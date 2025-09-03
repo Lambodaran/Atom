@@ -428,7 +428,7 @@ const NextMonthExpire = () => {
 
       {/* Filters Section */}
       <div className="bg-white p-3 md:p-4 rounded-lg shadow-lg mb-4 md:mb-6">
-        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-3 md:gap-4 items-end">
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 2xl:grid-cols-7 gap-3 md:gap-4 items-end">
           {/* Customer */}
           <div className="xl:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>

@@ -36,10 +36,10 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
   });
 
   const menuItems = [
-    { name: 'Home', icon: <Home className="h-5 w-5" />, path: '/dashboard-selection', key: 'dashboard-selection' },
-    { name: 'Lifts', icon: <Settings className="h-5 w-5" />, path: '/dashboard/lifts', key: 'lifts' },
-    { name: 'Items', icon: <Package className="h-5 w-5" />, path: '/dashboard/items', key: 'items' },
-    { name: 'Customer License', icon: <FileText className="h-5 w-5" />, path: '/dashboard/customer-license', key: 'customer-license' },
+    { name: 'Home', path: '/dashboard-selection', key: 'dashboard-selection' },
+    { name: 'All Products', path: '/dashboard-selection/all-product', key: 'all-product' },
+    { name: 'Help Center', path: '/dashboard-selection/help-center', key: 'help-center' },
+    { name: 'Testimonials', path: '/dashboard-selection/testimonials', key: 'testimonials' },
     
   ];
 

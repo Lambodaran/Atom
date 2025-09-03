@@ -42,7 +42,7 @@ const RecurringInvoices = () => {
         customerName: invoice.customer_name || 'Unknown',
         profileName: invoice.profile_name || '',
         frequency: invoice.frequency_display || invoice.repeat_every || 'Unknown',
-        lastInvoiceDate: invoice.last_invoice_date || '',
+        lastInvoiceDate: invoice.start_date || '',
         nextInvoiceDate: invoice.next_invoice_date || invoice.start_date || '',
         status: (invoice.status || 'UNKNOWN').toUpperCase(),
         amount: `INR ${parseFloat(invoice.amount || 0).toFixed(2)}`,
@@ -152,12 +152,12 @@ const RecurringInvoices = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-6">Recurring Invoices</h1>
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-6 lg:p-8">
+      <div className="max-w-full mx-auto">
+        <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-3xl font-bold text-gray-800 mb-3 sm:mb-4 md:mb-6">Recurring Invoices</h1>
         
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-3">
-          <div className="relative w-full sm:w-64">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
+          <div className="relative w-full sm:w-64 md:w-80">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -168,16 +168,16 @@ const RecurringInvoices = () => {
             />
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="flex flex-row gap-2 w-full sm:w-auto">
             <button
               onClick={handleExport}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm sm:text-base w-full sm:w-auto hover:bg-gray-300 transition-colors"
+              className="flex-1 sm:flex-none bg-gray-200 text-gray-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base hover:bg-gray-300 transition-colors"
             >
               Export
             </button>
             <button
               onClick={() => { setSelectedInvoice(null); setIsFormOpen(true); }}
-              className="bg-[#243158] text-white px-4 py-2 rounded text-sm sm:text-base flex items-center justify-center w-full sm:w-auto hover:bg-[#1e2a44] transition-colors"
+              className="flex-1 sm:flex-none bg-[#243158] text-white px-3 sm:px-4 py-2 rounded text-sm sm:text-base flex items-center justify-center hover:bg-[#1e2a44] transition-colors"
             >
               <Plus className="h-4 w-4 mr-2" /> Create
             </button>
@@ -185,11 +185,11 @@ const RecurringInvoices = () => {
         </div>
         
         {loading && <div className="text-center text-gray-500 text-sm sm:text-base">Loading...</div>}
-        {error && <div className="bg-red-100 text-red-700 p-3 sm:p-4 rounded mb-4 text-sm sm:text-base">{error}</div>}
+        {error && <div className="bg-red-100 text-red-700 p-3 sm:p-4 rounded mb-3 sm:mb-4 md:mb-4"> {error}</div>}
         
         {/* Desktop Table */}
-        <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
-          <div className="grid grid-cols-7 bg-gray-100 p-3 sm:p-4 text-xs sm:text-sm text-gray-700 uppercase tracking-wider">
+        <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto">
+          <div className="min-w-[800px] grid grid-cols-7 bg-gray-100 p-2 sm:p-3 md:p-4 text-xs sm:text-sm text-gray-700 uppercase tracking-wider">
             <div className="text-left">Customer</div>
             <div className="text-left">Profile</div>
             <div className="text-center">Frequency</div>
@@ -203,7 +203,7 @@ const RecurringInvoices = () => {
             filteredInvoices.map((invoice) => {
               const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
               return (
-                <div key={invoice.id} className="grid grid-cols-7 p-3 sm:p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
+                <div key={invoice.id} className="min-w-[800px] grid grid-cols-7 p-2 sm:p-3 md:p-4 border-t border-gray-200 text-sm text-gray-800 hover:bg-gray-50 transition-colors">
                   <div className="text-left font-medium truncate" title={invoice.customerName}>
                     {invoice.customerName}
                   </div>
@@ -226,44 +226,47 @@ const RecurringInvoices = () => {
                       onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
                       className="text-gray-400 hover:text-blue-600 p-1"
                       title="Edit invoice"
+                      aria-label="Edit invoice"
                     >
-                      <Pencil className="h-5 w-5" />
+                      <Pencil className="h-4 sm:h-5 w-4 sm:w-5" />
                     </button>
                     {isDue && (
                       <button
                         onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
                         className="text-gray-400 hover:text-green-600 p-1"
                         title="Generate invoice"
+                        aria-label="Generate invoice"
                       >
-                        <Calendar className="h-5 w-5" />
+                        <Calendar className="h-4 sm:h-5 w-4 sm:w-5" />
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(invoice.id)}
                       className="text-gray-400 hover:text-red-600 p-1"
                       title="Delete invoice"
+                      aria-label="Delete invoice"
                     >
-                      <Trash2 className="h-5 w-5" />
+                      <Trash2 className="h-4 sm:h-5 w-4 sm:w-5" />
                     </button>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="p-6 sm:p-8 text-center text-gray-500 text-sm sm:text-base">
+            <div className="p-4 sm:p-6 md:p-8 text-center text-gray-500 text-sm sm:text-base">
               No recurring invoices found.
             </div>
           )}
         </div>
         
         {/* Mobile Cards */}
-        <div className="md:hidden space-y-3">
+        <div className="md:hidden space-y-2 sm:space-y-3 overflow-y-auto max-h-[calc(100vh-200px)]">
           {filteredInvoices.length > 0 ? (
             filteredInvoices.map((invoice) => {
               const isDue = new Date(invoice.nextInvoiceDate) <= new Date() && invoice.status === 'ACTIVE';
               return (
-                <div key={invoice.id} className="bg-white rounded-lg shadow p-4">
-                  <div className="flex justify-between items-start mb-3">
+                <div key={invoice.id} className="bg-white rounded-lg shadow p-3 sm:p-4">
+                  <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base" title={invoice.customerName}>
                       {invoice.customerName}
                     </h3>
@@ -293,29 +296,32 @@ const RecurringInvoices = () => {
                       <span className="text-gray-500">Amount:</span>
                       <span className="font-medium">{invoice.amount}</span>
                     </div>
-                    <div className="flex justify-end space-x-3 pt-3">
+                    <div className="flex justify-end space-x-3 pt-2 sm:pt-3">
                       <button
                         onClick={() => { setSelectedInvoice({ id: invoice.id }); setIsFormOpen(true); }}
                         className="text-gray-400 hover:text-blue-600 p-1"
                         title="Edit invoice"
+                        aria-label="Edit invoice"
                       >
-                        <Pencil className="h-6 w-6" />
+                        <Pencil className="h-5 sm:h-6 w-5 sm:w-6" />
                       </button>
                       {isDue && (
                         <button
                           onClick={() => handleGenerate(invoice.id, invoice.nextInvoiceDate, invoice.status)}
                           className="text-gray-400 hover:text-green-600 p-1"
                           title="Generate invoice"
+                          aria-label="Generate invoice"
                         >
-                          <Calendar className="h-6 w-6" />
+                          <Calendar className="h-5 sm:h-6 w-5 sm:w-6" />
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(invoice.id)}
                         className="text-gray-400 hover:text-red-600 p-1"
                         title="Delete invoice"
+                        aria-label="Delete invoice"
                       >
-                        <Trash2 className="h-6 w-6" />
+                        <Trash2 className="h-5 sm:h-6 w-5 sm:w-6" />
                       </button>
                     </div>
                   </div>
@@ -323,13 +329,13 @@ const RecurringInvoices = () => {
               );
             })
           ) : (
-            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm sm:text-base">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center text-gray-500 text-sm sm:text-base">
               No recurring invoices found.
             </div>
           )}
         </div>
         
-        <div className="text-xs sm:text-sm text-gray-500 mt-4 text-center">
+        <div className="text-xs sm:text-sm text-gray-500 mt-3 sm:mt-4 text-center">
           Showing {filteredInvoices.length} of {recurringInvoices.length} invoices
         </div>
 

@@ -15,45 +15,45 @@ const Home = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           
           {/* AMC Software Card */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="bg-[#243158] p- h-36">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+            <div className="bg-[#243158] p-6 h-36">
               <h2 className="text-xl font-semibold text-white">AMC Software</h2>
             </div>
-            <div className="p-6">
-              <p className="text-gray-700 mb-6">
+            <div className="p-6 flex-grow flex flex-col">
+              <p className="text-gray-700 mb-6 flex-grow">
                 Complete AMC management system for your maintenance contracts
               </p>
-              <button className="w-full bg-[#243158] hover:bg-[#1a2442] text-white font-medium py-3 px-4 rounded-md transition-colors duration-300">
+              <button className="w-full bg-[#243158] hover:bg-[#1a2442] text-white font-medium py-3 px-4 rounded-md transition-colors duration-300 mt-auto">
                 Access AMC Software
               </button>
             </div>
           </div>
 
           {/* Lionsol HR Card */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="bg-[#243158] py-4 px-6">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+            <div className="bg-[#243158] p-6 h-36">
               <h2 className="text-xl font-semibold text-white">Lionsol HR</h2>
             </div>
-            <div className="p-6">
-              <p className="text-gray-700 mb-6">
+            <div className="p-6 flex-grow flex flex-col">
+              <p className="text-gray-700 mb-6 flex-grow">
                 Complete human resource management system for payroll, attendance, and employee management
               </p>
-              <button className="w-full bg-[#243158] hover:bg-[#1a2442] text-white font-medium py-3 px-4 rounded-md transition-colors duration-300">
+              <button className="w-full bg-[#243158] hover:bg-[#1a2442] text-white font-medium py-3 px-4 rounded-md transition-colors duration-300 mt-auto">
                 Renew Subscription
               </button>
             </div>
           </div>
 
           {/* Lionsol CRM Card */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="bg-[#243158] py-4 px-6">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+            <div className="bg-[#243158] p-6 h-36">
               <h2 className="text-xl font-semibold text-white">Lionsol CRM</h2>
             </div>
-            <div className="p-6">
-              <p className="text-gray-700 mb-6">
+            <div className="p-6 flex-grow flex flex-col">
+              <p className="text-gray-700 mb-6 flex-grow">
                 CRM solution integrating all business processes into one system
               </p>
-              <button className="w-full bg-[#243158] hover:bg-[#1a2442] text-white font-medium py-3 px-4 rounded-md transition-colors duration-300">
+              <button className="w-full bg-[#243158] hover:bg-[#1a2442] text-white font-medium py-3 px-4 rounded-md transition-colors duration-300 mt-auto">
                 Access Lionsol CRM
               </button>
             </div>

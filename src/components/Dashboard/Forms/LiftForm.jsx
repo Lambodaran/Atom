@@ -121,7 +121,19 @@ const LiftForm = ({
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewLift((prev) => ({ ...prev, [name]: value }));
+    setNewLift((prev) => {
+      const updatedLift = { ...prev, [name]: value };
+      // Automatically calculate load when noOfPassengers changes
+      if (name === 'noOfPassengers' && value) {
+        const passengers = parseInt(value, 10);
+        if (!isNaN(passengers) && passengers > 0) {
+          updatedLift.load = (passengers * 68).toString();
+        } else {
+          updatedLift.load = '';
+        }
+      }
+      return updatedLift;
+    });
   };
 
   // Open modal to add/edit dropdown option
@@ -475,6 +487,7 @@ const LiftForm = ({
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                   required
+                  readOnly
                 />
               </div>
             </div>

@@ -106,6 +106,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
       ],
     },
     { name: 'Employees', icon: <img src={dashboardImg} alt="Employees" className="h-4 w-4" />, path: '/dashboard/employees', key: 'employees' },
+    { name: 'Users', icon: <img src={dashboardImg} alt="Users" className="h-4 w-4" />, path: '/dashboard/user', key: 'users' }
   ];
 
   const toggleMenuExpand = (key) => {

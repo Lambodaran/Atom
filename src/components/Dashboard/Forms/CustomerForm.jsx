@@ -15,6 +15,7 @@ const CustomerForm = ({
     siteId: '',
     jobNo: '',
     siteName: '',
+    liftCode: '',
     siteAddress: '',
     email: '',
     phone: '',
@@ -34,6 +35,7 @@ const CustomerForm = ({
     panNumber: '',
     handoverDate: '',
     billingName: '',
+    generateCustomerLicense: false,
   });
 
   const [existingOptions, setExistingOptions] = useState({
@@ -44,6 +46,7 @@ const CustomerForm = ({
       { id: 1, value: 'government', label: 'Government' },
       { id: 2, value: 'private', label: 'Private' },
     ],
+    liftCodes: [],
   });
 
   const [optionsLoaded, setOptionsLoaded] = useState(false);
@@ -61,6 +64,7 @@ const CustomerForm = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSubmitTime, setLastSubmitTime] = useState(0);
+  const [selectedLiftCode, setSelectedLiftCode] = useState('');
 
   const createAxiosInstance = () => {
     const token = localStorage.getItem('access_token');
@@ -81,22 +85,41 @@ const CustomerForm = ({
 
     try {
       const endpoints = {
-        state: 'province-states',
-        routes: 'routes',
-        branch: 'branches',
+        state: '/sales/province-states',
+        routes: '/sales/routes',
+        branch: '/sales/branches',
+        liftCodes: '/auth/lift_list/',
       };
       const endpoint = endpoints[field];
-      const response = await axiosInstance.get(`${apiBaseUrl}/sales/${endpoint}/`);
+      const response = await axiosInstance.get(`${apiBaseUrl}${endpoint}`);
       console.log(`Fetched ${field} options:`, response.data);
-      setExistingOptions((prev) => {
-        const updatedOptions = { ...prev, [field]: response.data };
-        console.log(`Updated existingOptions.${field}:`, updatedOptions[field]);
-        return updatedOptions;
-      });
+
+      // Normalize response data
+      let normalizedData;
+      if (field === 'liftCodes') {
+        normalizedData = response.data.map((item) => ({
+          id: item.id,
+          value: item.lift_code,
+          label: item.lift_code,
+          ...item, // include all other lift details
+        }));
+      } else {
+        normalizedData = response.data.map((item) => ({
+          id: item.id || item,
+          value: item.value || item,
+          label: item.value || item,
+        }));
+      }
+
+      setExistingOptions((prev) => ({
+        ...prev,
+        [field]: normalizedData,
+      }));
+
       const capitalField = field.charAt(0).toUpperCase() + field.slice(1);
       if (dropdownOptions[`set${capitalField}Options`]) {
-        dropdownOptions[`set${capitalField}Options`](response.data.map((item) => item.value));
-        console.log(`Updated dropdownOptions.${field}Options:`, response.data.map((item) => item.value));
+        dropdownOptions[`set${capitalField}Options`](normalizedData.map((item) => item.value));
+        console.log(`Updated dropdownOptions.${field}Options:`, normalizedData.map((item) => item.value));
       } else {
         console.warn(`dropdownOptions.set${capitalField}Options is not defined`);
       }
@@ -124,15 +147,16 @@ const CustomerForm = ({
       routes: 'routes',
       branch: 'branch',
       sector: 'sector',
+      liftCode: 'liftCode',
     };
 
-    ['state', 'routes', 'branch', 'sector'].forEach((field) => {
+    ['state', 'routes', 'branch', 'sector', 'liftCode'].forEach((field) => {
       const idKey = fieldIdMap[field];
       if (data[idKey] && options[field]) {
-        const option = options[field].find((opt) => opt.id === data[idKey] || opt.value === data[idKey]);
-        transformed[field] = option ? (option.label || option.value) : '';
+        const option = options[field].find((opt) => opt.id === data[idKey] || opt.value === data[idKey] || opt.lift_code === data[idKey]);
+        transformed[field] = option ? (option.label || option.value || option.lift_code) : '';
       } else {
-        transformed[field] = data[field] || '';
+        transformed[field] = data[field] || data[idKey] || '';
       }
     });
 
@@ -141,15 +165,16 @@ const CustomerForm = ({
   };
 
   useEffect(() => {
-    const fields = ['state', 'routes', 'branch'];
+    const fields = ['state', 'routes', 'branch', 'liftCodes'];
     Promise.all(fields.map((field) => fetchOptions(field)))
       .then(() => {
         if (isEdit && Object.keys(initialData).length > 0) {
           const transformedData = transformInitialData(initialData, existingOptions);
           setFormData((prev) => ({ ...prev, ...transformedData }));
+          setSelectedLiftCode(transformedData.liftCode || '');
         }
         setOptionsLoaded(true);
-        console.log('Options loaded, existingOptions:', existingOptions);
+        console.log('Options loaded, existingOptions.liftCodes:', existingOptions.liftCodes);
       })
       .catch((error) => {
         console.error('Error fetching all options:', error);
@@ -159,9 +184,10 @@ const CustomerForm = ({
           state: [],
           routes: [],
           branch: [],
+          liftCodes: [],
         }));
       });
-  }, [initialData]);
+  }, [initialData, apiBaseUrl]);
 
   useEffect(() => {
     if (optionsLoaded) {
@@ -188,13 +214,34 @@ const CustomerForm = ({
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    setFormData((prev) => {
+      const updatedData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      };
+      if (name === 'siteName' && selectedLiftCode && value && !value.includes(` - ${selectedLiftCode}`)) {
+        updatedData.siteName = `${value} - ${selectedLiftCode}`;
+      }
+      if (name === 'sameAsSiteAddress' && checked) {
+        updatedData.officeAddress = prev.siteAddress;
+      }
+      return updatedData;
+    });
+  };
+
+  const handleSelectChange = (e) => {
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: value,
     }));
-
-    if (name === 'sameAsSiteAddress' && checked) {
-      setFormData((prev) => ({ ...prev, officeAddress: prev.siteAddress }));
+    if (name === 'liftCode') {
+      setSelectedLiftCode(value);
+      setFormData((prev) => ({
+        ...prev,
+        siteName: prev.siteName ? `${prev.siteName.split(' - ')[0]} - ${value}` : ` - ${value}`,
+        liftCode: value,
+      }));
     }
   };
 
@@ -404,60 +451,11 @@ const CustomerForm = ({
       setIsSubmitting(true);
       setLastSubmitTime(now);
 
-      console.log('Fetching options for province-states, routes, branches...');
-      const [
-        provinceStatesResponse,
-        routesResponse,
-        branchesResponse,
-      ] = await Promise.all([
-        axiosInstance.get(`${apiBaseUrl}/sales/province-states/`).catch((error) => {
-          console.error('Error fetching province-states:', error);
-          throw new Error('Failed to fetch states');
-        }),
-        axiosInstance.get(`${apiBaseUrl}/sales/routes/`).catch((error) => {
-          console.error('Error fetching routes:', error);
-          throw new Error('Failed to fetch routes');
-        }),
-        axiosInstance.get(`${apiBaseUrl}/sales/branches/`).catch((error) => {
-          console.error('Error fetching branches:', error);
-          throw new Error('Failed to fetch branches');
-        }),
-      ]);
-
-      const provinceStates = provinceStatesResponse.data;
-      const routes = routesResponse.data;
-      const branches = branchesResponse.data;
-
-      console.log('API provinceStates:', provinceStates);
-      console.log('API routes:', routes);
-      console.log('API branches:', branches);
-
-      const selectedState = provinceStates.find((s) => s.value === formData.state);
-      if (!selectedState) {
-        console.log('Validation failed: Invalid state:', formData.state, 'Available states:', provinceStates.map((s) => s.value));
-        toast.error('Selected state is invalid. Please select a valid state from the dropdown.');
-        setFormData((prev) => ({ ...prev, state: '' }));
-        return;
-      }
-      const selectedRoute = routes.find((r) => r.value === formData.routes);
-      if (!selectedRoute) {
-        console.log('Validation failed: Invalid route:', formData.routes, 'Available routes:', routes.map((r) => r.value));
-        toast.error('Selected route is invalid. Please select a valid route from the dropdown.');
-        setFormData((prev) => ({ ...prev, routes: '' }));
-        return;
-      }
-      const selectedBranch = branches.find((b) => b.value === formData.branch);
-      if (!selectedBranch) {
-        console.log('Validation failed: Invalid branch:', formData.branch, 'Available branches:', branches.map((b) => b.value));
-        toast.error('Selected branch is invalid. Please select a valid branch from the dropdown.');
-        setFormData((prev) => ({ ...prev, branch: '' }));
-        return;
-      }
-
       const customerData = {
         site_id: formData.siteId,
         job_no: formData.jobNo,
         site_name: formData.siteName,
+        lift_code: formData.liftCode || null,
         site_address: formData.siteAddress,
         email: formData.email,
         phone: formData.phone,
@@ -467,15 +465,16 @@ const CustomerForm = ({
         designation: formData.designation,
         pin_code: formData.pinCode,
         country: formData.country,
-        province_state: selectedState.id,
+        province_state: existingOptions.state.find((s) => s.value === formData.state)?.id || null,
         city: formData.city,
         sector: formData.sector || null,
-        routes: selectedRoute.id,
-        branch: selectedBranch.id,
+        routes: existingOptions.routes.find((r) => r.value === formData.routes)?.id || null,
+        branch: existingOptions.branch.find((b) => b.value === formData.branch)?.id || null,
         gst_number: formData.gstNumber,
         pan_number: formData.panNumber,
         handover_date: formData.handoverDate,
         billing_name: formData.billingName,
+        generate_customer_license: formData.generateCustomerLicense,
       };
 
       console.log('Prepared customerData:', customerData);
@@ -503,7 +502,7 @@ const CustomerForm = ({
       await onSubmitSuccess(updatedCustomer);
 
       // Refresh dropdown options
-      await Promise.all(['state', 'routes', 'branch'].map((field) => fetchOptions(field)));
+      await Promise.all(['state', 'routes', 'branch', 'liftCodes'].map((field) => fetchOptions(field)));
       onClose();
     } catch (error) {
       console.error(`Error ${isEdit ? 'editing' : 'creating'} customer:`, error);
@@ -558,8 +557,12 @@ const CustomerForm = ({
   );
 
   const renderSelectWithAdd = (name, label, required = false, showAddButton = true) => {
-    const selectOptions = name === 'sector' ? existingOptions.sector : (existingOptions[name] || []);
-    console.log(`Rendering ${name} dropdown, selectOptions:`, selectOptions, `dropdownOptions.${name}Options:`, dropdownOptions[`${name}Options`]);
+const selectOptions =
+  name === 'sector'
+    ? existingOptions.sector
+    : name === 'liftCode'
+    ? existingOptions.liftCodes
+    : (existingOptions[name] || []);    console.log(`Rendering ${name} dropdown, selectOptions:`, selectOptions, `formData.${name}:`, formData[name], `optionsLoaded:`, optionsLoaded);
     return (
       <div className="form-group mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -569,16 +572,16 @@ const CustomerForm = ({
           <select
             name={name}
             value={formData[name] || ''}
-            onChange={handleInputChange}
+            onChange={name === 'liftCode' ? handleSelectChange : handleInputChange}
             className="flex-1 px-4 py-2 rounded-l-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all appearance-none bg-white"
             disabled={addingOptions[name] || !optionsLoaded}
             required={required}
           >
-            <option value="">Select {label}</option>
+            <option value="">{optionsLoaded ? `Select ${label}` : 'Loading...'}</option>
             {selectOptions.length > 0 ? (
               selectOptions.map((option, index) => {
-                const optionValue = typeof option === 'string' ? option : option.value;
-                const optionLabel = typeof option === 'string' ? option : option.label || option.value;
+                const optionValue = typeof option === 'string' ? option : (name === 'liftCode' ? option.value : option.value);
+                const optionLabel = typeof option === 'string' ? option : (name === 'liftCode' ? option.label : option.label || option.value);
                 return (
                   <option key={`${name}-${optionValue}-${index}`} value={optionValue}>
                     {optionLabel}
@@ -589,7 +592,7 @@ const CustomerForm = ({
               <option value="" disabled>No options available</option>
             )}
           </select>
-          {showAddButton && name !== 'sector' && (
+          {showAddButton && name !== 'sector' && name !== 'liftCode' && (
             <button
               type="button"
               onClick={() => openAddModal(name)}
@@ -644,6 +647,7 @@ const CustomerForm = ({
                 {renderInput('siteId', 'SITE ID', 'text', true)}
                 {renderInput('jobNo', 'JOB NO')}
                 {renderInput('siteName', 'SITE NAME', 'text', true)}
+                {renderSelectWithAdd('liftCode', 'LIFT CODE', false, false)}
                 {renderTextarea('siteAddress', 'SITE ADDRESS')}
                 {renderTextarea('officeAddress', 'OFFICE ADDRESS')}
                 {renderCheckbox('sameAsSiteAddress', 'Same as Site Address')}
@@ -668,6 +672,7 @@ const CustomerForm = ({
                 {renderInput('panNumber', 'PAN NUMBER')}
                 {renderInput('handoverDate', 'HANDOVER DATE', 'date')}
                 {renderInput('billingName', 'BILLING NAME')}
+                {renderCheckbox('generateCustomerLicense', 'Generate Customer License')}
               </div>
             </div>
           ) : (

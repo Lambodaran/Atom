@@ -41,7 +41,7 @@ const CustomerLicense = () => {
           site: item.customer_name || 'N/A',
           lift: item.lift_details || null,   // keep full lift object
           licenseNo: item.license_no || 'N/A',
-          period: `${item.period_start || 'N/A'} to ${item.period_end || 'N/A'}`,
+           period: `${item.period_start || 'N/A'} to ${item.handover_date || item.period_end || 'N/A'}`,  // ✅ handover replaces end date
           attachment: item.attachment ? 'View' : '',
           attachmentUrl: item.attachment
         })));

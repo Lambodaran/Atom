@@ -384,6 +384,7 @@ const CustomerForm = ({
       }
       toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
       await fetchOptions(field);
+      await fetchOptions(field);
     } catch (error) {
       console.error(`Error deleting ${field}:`, error);
       if (error.response?.status === 401) {
@@ -400,130 +401,144 @@ const CustomerForm = ({
   };
 
   const handleSubmit = async () => {
-    const now = Date.now();
-    if (isSubmitting || (now - lastSubmitTime < 500)) {
-      console.log('Submission throttled or already in progress, ignoring.');
-      return;
+  const now = Date.now();
+  if (isSubmitting || (now - lastSubmitTime < 500)) {
+    console.log('Submission throttled or already in progress, ignoring.');
+    return;
+  }
+
+  console.log('handleSubmit called, isEdit:', isEdit, 'formData:', formData);
+
+  if (!formData.siteId) {
+    toast.error('Site ID is required.');
+    console.log('Validation failed: Site ID is empty');
+    return;
+  }
+  if (!formData.siteName) {
+    toast.error('Site Name is required.');
+    console.log('Validation failed: Site Name is empty');
+    return;
+  }
+  if (!formData.state) {
+    toast.error('State is required. Please select a state or add a new one.');
+    console.log('Validation failed: State is empty, Available states:', existingOptions.state.map((s) => s.value));
+    return;
+  }
+  if (!formData.routes) {
+    toast.error('Route is required. Please select a route or add a new one.');
+    console.log('Validation failed: Route is empty, Available routes:', existingOptions.routes.map((r) => r.value));
+    return;
+  }
+  if (!formData.branch) {
+    toast.error('Branch is required. Please select a branch or add a new one.');
+    console.log('Validation failed: Branch is empty, Available branches:', existingOptions.branch.map((b) => b.value));
+    return;
+  }
+
+  const validSectors = ['government', 'private'];
+  if (formData.sector && !validSectors.includes(formData.sector)) {
+    toast.error('Please select a valid sector from the dropdown.');
+    console.log('Validation failed: Invalid sector value:', formData.sector);
+    return;
+  }
+
+  // Validate that if generateCustomerLicense is checked, liftCode must be selected
+  if (formData.generateCustomerLicense && !formData.liftCode) {
+    toast.error('Please select a Lift Code to generate customer license.');
+    console.log('Validation failed: Generate license checked but no lift code selected');
+    return;
+  }
+
+  const axiosInstance = createAxiosInstance();
+  if (!axiosInstance) {
+    console.log('Validation failed: No Axios instance created');
+    return;
+  }
+
+  try {
+    setIsSubmitting(true);
+    setLastSubmitTime(now);
+
+    const customerData = {
+      site_id: formData.siteId,
+      job_no: formData.jobNo,
+      site_name: formData.siteName,
+      lift_code: formData.liftCode || null,
+      site_address: formData.siteAddress,
+      email: formData.email,
+      phone: formData.phone,
+      mobile: formData.mobile,
+      office_address: formData.officeAddress,
+      contact_person_name: formData.contactPersonName,
+      designation: formData.designation,
+      pin_code: formData.pinCode,
+      country: formData.country,
+      province_state: existingOptions.state.find((s) => s.value === formData.state)?.id || null,
+      city: formData.city,
+      sector: formData.sector || null,
+      routes: existingOptions.routes.find((r) => r.value === formData.routes)?.id || null,
+      branch: existingOptions.branch.find((b) => b.value === formData.branch)?.id || null,
+      gst_number: formData.gstNumber,
+      pan_number: formData.panNumber,
+      handover_date: formData.handoverDate,
+      billing_name: formData.billingName,
+      generate_customer_license: formData.generateCustomerLicense,
+      lift_code: formData.liftCode || null,
+      lifts: formData.liftCode ? [existingOptions.liftCodes.find((lift) => lift.value === formData.liftCode)?.id] : [], // Add lifts array with Lift ID
+    };
+
+    console.log('Prepared customerData:', customerData);
+
+    console.log('Attempting to submit customer data...');
+    let response;
+    if (isEdit) {
+      console.log('Calling PUT /sales/edit-customer/', initialData.id);
+      response = await axiosInstance.put(
+        `${apiBaseUrl}/sales/edit-customer/${initialData.id}/`,
+        customerData
+      );
+      toast.success('Customer updated successfully.');
+    } else {
+      console.log('Calling POST /sales/add-customer/');
+      response = await axiosInstance.post(
+        `${apiBaseUrl}/sales/add-customer/`,
+        customerData
+      );
+      toast.success('Customer created successfully.');
     }
 
-    console.log('handleSubmit called, isEdit:', isEdit, 'formData:', formData);
-
-    if (!formData.siteId) {
-      toast.error('Site ID is required.');
-      console.log('Validation failed: Site ID is empty');
-      return;
-    }
-    if (!formData.siteName) {
-      toast.error('Site Name is required.');
-      console.log('Validation failed: Site Name is empty');
-      return;
-    }
-    if (!formData.state) {
-      toast.error('State is required. Please select a state or add a new one.');
-      console.log('Validation failed: State is empty, Available states:', existingOptions.state.map((s) => s.value));
-      return;
-    }
-    if (!formData.routes) {
-      toast.error('Route is required. Please select a route or add a new one.');
-      console.log('Validation failed: Route is empty, Available routes:', existingOptions.routes.map((r) => r.value));
-      return;
-    }
-    if (!formData.branch) {
-      toast.error('Branch is required. Please select a branch or add a new one.');
-      console.log('Validation failed: Branch is empty, Available branches:', existingOptions.branch.map((b) => b.value));
-      return;
+    // Show success message if license was generated
+    if (formData.generateCustomerLicense && formData.liftCode) {
+      toast.success('Customer license generated successfully!');
     }
 
-    const validSectors = ['government', 'private'];
-    if (formData.sector && !validSectors.includes(formData.sector)) {
-      toast.error('Please select a valid sector from the dropdown.');
-      console.log('Validation failed: Invalid sector value:', formData.sector);
-      return;
+    // Update parent component with new data
+    const updatedCustomer = { ...customerData, id: response.data.id || initialData.id };
+    await onSubmitSuccess(updatedCustomer);
+
+    // Refresh dropdown options
+    await Promise.all(['state', 'routes', 'branch', 'liftCodes'].map((field) => fetchOptions(field)));
+    onClose();
+  } catch (error) {
+    console.error(`Error ${isEdit ? 'editing' : 'creating'} customer:`, error);
+    if (error.response?.status === 401) {
+      toast.error('Session expired. Please log in again.');
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    } else {
+      const errorMsg =
+        error.response?.data?.error ||
+        Object.entries(error.response?.data || {})
+          .map(([field, errors]) => `${field}: ${errors.join(', ')}`)
+          .join('; ') ||
+        `Failed to ${isEdit ? 'update' : 'create'} customer.`;
+      toast.error(errorMsg);
+      console.log('Submission error details:', error.response?.data);
     }
-
-    const axiosInstance = createAxiosInstance();
-    if (!axiosInstance) {
-      console.log('Validation failed: No Axios instance created');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setLastSubmitTime(now);
-
-      const customerData = {
-        site_id: formData.siteId,
-        job_no: formData.jobNo,
-        site_name: formData.siteName,
-        lift_code: formData.liftCode || null,
-        site_address: formData.siteAddress,
-        email: formData.email,
-        phone: formData.phone,
-        mobile: formData.mobile,
-        office_address: formData.officeAddress,
-        contact_person_name: formData.contactPersonName,
-        designation: formData.designation,
-        pin_code: formData.pinCode,
-        country: formData.country,
-        province_state: existingOptions.state.find((s) => s.value === formData.state)?.id || null,
-        city: formData.city,
-        sector: formData.sector || null,
-        routes: existingOptions.routes.find((r) => r.value === formData.routes)?.id || null,
-        branch: existingOptions.branch.find((b) => b.value === formData.branch)?.id || null,
-        gst_number: formData.gstNumber,
-        pan_number: formData.panNumber,
-        handover_date: formData.handoverDate,
-        billing_name: formData.billingName,
-        generate_customer_license: formData.generateCustomerLicense,
-      };
-
-      console.log('Prepared customerData:', customerData);
-
-      console.log('Attempting to submit customer data...');
-      let response;
-      if (isEdit) {
-        console.log('Calling PUT /sales/edit-customer/', initialData.id);
-        response = await axiosInstance.put(
-          `${apiBaseUrl}/sales/edit-customer/${initialData.id}/`,
-          customerData
-        );
-        toast.success('Customer updated successfully.');
-      } else {
-        console.log('Calling POST /sales/add-customer/');
-        response = await axiosInstance.post(
-          `${apiBaseUrl}/sales/add-customer/`,
-          customerData
-        );
-        toast.success('Customer created successfully.');
-      }
-
-      // Update parent component with new data
-      const updatedCustomer = { ...customerData, id: response.data.id || initialData.id };
-      await onSubmitSuccess(updatedCustomer);
-
-      // Refresh dropdown options
-      await Promise.all(['state', 'routes', 'branch', 'liftCodes'].map((field) => fetchOptions(field)));
-      onClose();
-    } catch (error) {
-      console.error(`Error ${isEdit ? 'editing' : 'creating'} customer:`, error);
-      if (error.response?.status === 401) {
-        toast.error('Session expired. Please log in again.');
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
-      } else {
-        const errorMsg =
-          error.response?.data?.error ||
-          Object.entries(error.response?.data || {})
-            .map(([field, errors]) => `${field}: ${errors.join(', ')}`)
-            .join('; ') ||
-          `Failed to ${isEdit ? 'update' : 'create'} customer.`;
-        toast.error(errorMsg);
-        console.log('Submission error details:', error.response?.data);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const renderInput = (name, label, type = 'text', required = false) => (
     <div className="form-group mb-4">
@@ -557,12 +572,13 @@ const CustomerForm = ({
   );
 
   const renderSelectWithAdd = (name, label, required = false, showAddButton = true) => {
-const selectOptions =
-  name === 'sector'
-    ? existingOptions.sector
-    : name === 'liftCode'
-    ? existingOptions.liftCodes
-    : (existingOptions[name] || []);    console.log(`Rendering ${name} dropdown, selectOptions:`, selectOptions, `formData.${name}:`, formData[name], `optionsLoaded:`, optionsLoaded);
+    const selectOptions =
+      name === 'sector'
+        ? existingOptions.sector
+        : name === 'liftCode'
+        ? existingOptions.liftCodes
+        : (existingOptions[name] || []);
+    console.log(`Rendering ${name} dropdown, selectOptions:`, selectOptions, `formData.${name}:`, formData[name], `optionsLoaded:`, optionsLoaded);
     return (
       <div className="form-group mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -627,106 +643,59 @@ const selectOptions =
   );
 
   return (
-    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
-        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
-          <h2 className="text-2xl font-bold text-white">
-            {isEdit ? 'Edit Customer' : 'Create New Customer'}
-          </h2>
-          <p className="text-white">
-            {isEdit ? 'Update customer details' : 'Fill in all required fields (*) to add a customer'}
-          </p>
-        </div>
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
-          {optionsLoaded ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                  Basic Information
-                </h3>
-                {renderInput('siteId', 'SITE ID', 'text', true)}
-                {renderInput('jobNo', 'JOB NO')}
-                {renderInput('siteName', 'SITE NAME', 'text', true)}
-                {renderSelectWithAdd('liftCode', 'LIFT CODE', false, false)}
-                {renderTextarea('siteAddress', 'SITE ADDRESS')}
-                {renderTextarea('officeAddress', 'OFFICE ADDRESS')}
-                {renderCheckbox('sameAsSiteAddress', 'Same as Site Address')}
-                {renderInput('contactPersonName', 'CONTACT PERSON NAME')}
-                {renderInput('designation', 'DESIGNATION')}
+    <>
+      <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
+          <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] p-6">
+            <h2 className="text-2xl font-bold text-white">
+              {isEdit ? 'Edit Customer' : 'Create New Customer'}
+            </h2>
+            <p className="text-white">
+              {isEdit ? 'Update customer details' : 'Fill in all required fields (*) to add a customer'}
+            </p>
+          </div>
+          <div className="p-6 max-h-[70vh] overflow-y-auto">
+            {optionsLoaded ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                    Basic Information
+                  </h3>
+                  {renderInput('siteId', 'SITE ID', 'text', true)}
+                  {renderInput('jobNo', 'JOB NO')}
+                  {renderInput('siteName', 'SITE NAME', 'text', true)}
+                  {renderSelectWithAdd('liftCode', 'LIFT CODE', false, false)}
+                  {renderTextarea('siteAddress', 'SITE ADDRESS')}
+                  {renderTextarea('officeAddress', 'OFFICE ADDRESS')}
+                  {renderCheckbox('sameAsSiteAddress', 'Same as Site Address')}
+                  {renderInput('contactPersonName', 'CONTACT PERSON NAME')}
+                  {renderInput('designation', 'DESIGNATION')}
+                </div>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                    Contact & Location
+                  </h3>
+                  {renderInput('email', 'EMAIL', 'email')}
+                  {renderInput('phone', 'PHONE', 'tel')}
+                  {renderInput('mobile', 'MOBILE (SMS NOTIFICATION)', 'tel')}
+                  {renderInput('pinCode', 'PIN CODE')}
+                  {renderInput('country', 'COUNTRY')}
+                  {renderSelectWithAdd('state', 'STATE', true)}
+                  {renderInput('city', 'CITY')}
+                  {renderSelectWithAdd('sector', 'SECTOR', false, false)}
+                  {renderSelectWithAdd('routes', 'ROUTE', true)}
+                  {renderSelectWithAdd('branch', 'BRANCH', true)}
+                  {renderInput('gstNumber', 'GST NUMBER')}
+                  {renderInput('panNumber', 'PAN NUMBER')}
+                  {renderInput('handoverDate', 'HANDOVER DATE', 'date')}
+                  {renderInput('billingName', 'BILLING NAME')}
+                  {renderCheckbox('generateCustomerLicense', 'Generate Customer License')}
+                </div>
               </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                  Contact & Location
-                </h3>
-                {renderInput('email', 'EMAIL', 'email')}
-                {renderInput('phone', 'PHONE', 'tel')}
-                {renderInput('mobile', 'MOBILE (SMS NOTIFICATION)', 'tel')}
-                {renderInput('pinCode', 'PIN CODE')}
-                {renderInput('country', 'COUNTRY')}
-                {renderSelectWithAdd('state', 'STATE', true)}
-                {renderInput('city', 'CITY')}
-                {renderSelectWithAdd('sector', 'SECTOR', false, false)}
-                {renderSelectWithAdd('routes', 'ROUTE', true)}
-                {renderSelectWithAdd('branch', 'BRANCH', true)}
-                {renderInput('gstNumber', 'GST NUMBER')}
-                {renderInput('panNumber', 'PAN NUMBER')}
-                {renderInput('handoverDate', 'HANDOVER DATE', 'date')}
-                {renderInput('billingName', 'BILLING NAME')}
-                {renderCheckbox('generateCustomerLicense', 'Generate Customer License')}
-              </div>
-            </div>
-          ) : (
-            <div className="flex justify-center items-center h-40">
-              <svg
-                className="animate-spin h-8 w-8 text-blue-500"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <span className="ml-2 text-gray-600">Loading options...</span>
-            </div>
-          )}
-        </div>
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all"
-            disabled={Object.values(addingOptions).some((v) => v)}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              const now = Date.now();
-              if (!isSubmitting && (now - lastSubmitTime >= 500)) {
-                handleSubmit();
-              } else {
-                console.log('Submission throttled or already in progress, ignoring.');
-              }
-            }}
-            className={`px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-[#213066] hover:to-[#182755] transition-all shadow-md ${
-              Object.values(addingOptions).some((v) => v) || !optionsLoaded || isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
-            }`}
-            disabled={Object.values(addingOptions).some((v) => v) || !optionsLoaded || isSubmitting}
-          >
-            {Object.values(addingOptions).some((v) => v) || isSubmitting ? (
-              <span className="flex items-center justify-center">
+            ) : (
+              <div className="flex justify-center items-center h-40">
                 <svg
-                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                  className="animate-spin h-8 w-8 text-blue-500"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -745,16 +714,65 @@ const selectOptions =
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                {isEdit ? 'Updating...' : 'Creating...'}
-              </span>
-            ) : (
-              isEdit ? 'Update Customer' : 'Create Customer'
+                <span className="ml-2 text-gray-600">Loading options...</span>
+              </div>
             )}
-          </button>
+          </div>
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-all"
+              disabled={Object.values(addingOptions).some((v) => v)}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const now = Date.now();
+                if (!isSubmitting && (now - lastSubmitTime >= 500)) {
+                  handleSubmit();
+                } else {
+                  console.log('Submission throttled or already in progress, ignoring.');
+                }
+              }}
+              className={`px-6 py-2.5 bg-gradient-to-r from-[#2D3A6B] to-[#243158] rounded-lg text-white font-medium hover:from-[#213066] hover:to-[#182755] transition-all shadow-md ${
+                Object.values(addingOptions).some((v) => v) || !optionsLoaded || isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+              disabled={Object.values(addingOptions).some((v) => v) || !optionsLoaded || isSubmitting}
+            >
+              {Object.values(addingOptions).some((v) => v) || isSubmitting ? (
+                <span className="flex items-center justify-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  {isEdit ? 'Updating...' : 'Creating...'}
+                </span>
+              ) : (
+                isEdit ? 'Update Customer' : 'Create Customer'
+              )}
+            </button>
+          </div>
         </div>
       </div>
-      {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) => (
-        isOpen && (
+      {Object.entries(modalState).map(([field, { isOpen, value, isEditing, editId }]) =>
+        isOpen ? (
           <div key={`modal-${field}`} className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
@@ -782,7 +800,7 @@ const selectOptions =
                 <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-100 text-gray-700">
+                      <tr className="bg-gray-100 text-gray-700 rounded-t-xl">
                         <th className="p-2 text-left">Name</th>
                         <th className="p-2 text-right">Actions</th>
                       </tr>
@@ -845,9 +863,9 @@ const selectOptions =
               </div>
             </div>
           </div>
-        )
-      ))}
-    </div>
+        ) : null
+      )}
+    </>
   );
 };
 

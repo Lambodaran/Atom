@@ -1,133 +1,252 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const CustomerLicense = () => {
-  const mockData = [
-    { 
-      site: "AL237 Kodungaiyur Mr.Elangovan", 
-      lifts: "A, #277951, Lift Code: AL237, Name: Mr.Elangovan, Floor: G+2, Brand: ATOM Lifts IPL, 6P, 408 Kg, GEARLESS Machine, Machine Brand: ATOM Lifts IPL, Passenger Lift, AUTOMATIC Door, Door Brand: ATOM Lifts IPL, Controller Brand: ATOM Lifts IPL, Cabin: SS", 
-      licenseNo: "LC001", 
-      period: "2025-07-01 to 2026-06-30", 
-      attachment: "View" 
-    },
-    { 
-      site: "BL145 Chennai Ms.Priya", 
-      lifts: "B, #288762, Lift Code: BL145, Name: Ms.Priya, Floor: G+5, Brand: Elevate Ltd, 8P, 630 Kg, GEARED Machine, Machine Brand: Elevate Ltd, Passenger Lift, MANUAL Door, Door Brand: Elevate Ltd, Controller Brand: Elevate Ltd, Cabin: Glass", 
-      licenseNo: "LC002", 
-      period: "2025-06-15 to 2026-06-14", 
-      attachment: "View" 
-    },
-    { 
-      site: "CL392 Bangalore Mr.Ramesh", 
-      lifts: "C, #299483, Lift Code: CL392, Name: Mr.Ramesh, Floor: G+3, Brand: LiftMaster, 4P, 320 Kg, GEARLESS Machine, Machine Brand: LiftMaster, Passenger Lift, AUTOMATIC Door, Door Brand: LiftMaster, Controller Brand: LiftMaster, Cabin: SS", 
-      licenseNo: "LC003", 
-      period: "2025-07-10 to 2026-07-09", 
-      attachment: "View" 
-    },
-  ];
-
+  const [data, setData] = useState([]);
   const [expandedCard, setExpandedCard] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'ALL'
+  });
+
+  const apiBaseUrl = import.meta.env.VITE_BASE_API || '';
+
+  const createAxiosInstance = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.error('No access token found in localStorage');
+      toast.error('Please log in to continue.');
+      window.location.href = '/login';
+      return null;
+    }
+    return axios.create({
+      baseURL: apiBaseUrl,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  };
+
+  const fetchLicenses = async () => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      setIsLoading(true);
+      const response = await axiosInstance.get('/sales/customer-license-list/');
+      console.log('API Response:', response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        setData(response.data.map(item => ({
+          site: item.customer_name || 'N/A',
+          lift: item.lift_details || null,   // keep full lift object
+          licenseNo: item.license_no || 'N/A',
+          period: `${item.period_start || 'N/A'} to ${item.period_end || 'N/A'}`,
+          attachment: item.attachment ? 'View' : '',
+          attachmentUrl: item.attachment
+        })));
+      } else {
+        console.error('Invalid response format:', response.data);
+        setData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching customer licenses:', error.response ? error.response.data : error.message);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error('Failed to fetch customer licenses. Check console for details.');
+      }
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLicenses();
+  }, []);
 
   const toggleExpand = (index) => {
     setExpandedCard(expandedCard === index ? null : index);
   };
 
+  const handleSearch = () => {
+    fetchLicenses();
+  };
+
+  const handleExport = async () => {
+    try {
+      const axiosInstance = createAxiosInstance();
+      if (!axiosInstance) return;
+      
+      const response = await axiosInstance.get('/sales/export-customer-licenses/', {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'customer_licenses.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Licenses exported successfully');
+    } catch (error) {
+      console.error('Error exporting licenses:', error);
+      toast.error('Failed to export licenses');
+    }
+  };
+
+  if (isLoading) {
+    return <div className="container mx-auto p-4">Loading customer licenses...</div>;
+  }
+
   return (
     <div className="container mx-auto p-4 bg-gradient-to-br from-gray-50 to-white min-h-screen">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6 flex-col md:flex-row">
         <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-4 md:mb-0">Customer License</h2>
       </div>
       
       {/* Filters */}
-      <div className="flex flex-col md:flex-row mb-6 gap-4">
-        <select className="border border-gray-300 p-2 md:p-3 rounded-lg w-full md:w-1/4 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base">
-          <option>ALL</option>
-        </select>
-        <select className="border border-gray-300 p-2 md:p-3 rounded-lg w-full md:w-1/4 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base">
-          <option>EQUAL</option>
-        </select>
-        <select className="border border-gray-300 p-2 md:p-3 rounded-lg w-full md:w-1/4 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base">
-          <option>ALL</option>
-        </select>
-        <button className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] text-white px-4 py-2 md:px-6 md:py-3 rounded-lg shadow-lg hover:from-[#213066] hover:to-[#182755] transition duration-300 w-full md:w-auto text-sm md:text-base">
-          Search
-        </button>
-        <button className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] text-white px-4 py-2 md:px-6 md:py-3 rounded-lg shadow-lg hover:from-[#213066] hover:to-[#182755] transition duration-300 w-full md:w-auto text-sm md:text-base">
-          Export
-        </button>
-      </div>
+      {/* (keep your filters unchanged) */}
 
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full border-collapse bg-white rounded-xl shadow-2xl">
           <thead>
             <tr className="bg-gray-300 text-gray-800 rounded-t-xl">
-              <th className="border-b-2 border-gray-400 p-4 text-left font-semibold rounded-tl-xl whitespace-nowrap">SITE NAME</th>
-              <th className="border-b-2 border-gray-400 p-4 text-left font-semibold whitespace-nowrap">LIFTS</th>
-              <th className="border-b-2 border-gray-400 p-4 text-left font-semibold whitespace-nowrap">LICENSE NO</th>
-              <th className="border-b-2 border-gray-400 p-4 text-left font-semibold whitespace-nowrap">PERIOD</th>
-              <th className="border-b-2 border-gray-400 p-4 text-left font-semibold rounded-tr-xl whitespace-nowrap">ATTACHMENT</th>
+              <th className="p-4 text-left font-semibold">SITE NAME</th>
+              <th className="p-4 text-left font-semibold">LIFT DETAILS</th>
+              <th className="p-4 text-left font-semibold">LICENSE NO</th>
+              <th className="p-4 text-left font-semibold">PERIOD</th>
+              <th className="p-4 text-left font-semibold">ATTACHMENT</th>
             </tr>
           </thead>
           <tbody>
-            {mockData.map((item, index) => (
-              <tr key={index} className="hover:bg-gray-50 transition duration-300">
-                <td className="border-b border-gray-200 p-4 text-gray-800 whitespace-nowrap">{item.site}</td>
-                <td className="border-b border-gray-200 p-4 text-gray-700">{item.lifts}</td>
-                <td className="border-b border-gray-200 p-4 text-gray-800 whitespace-nowrap">{item.licenseNo}</td>
-                <td className="border-b border-gray-200 p-4 text-gray-800 whitespace-nowrap">{item.period}</td>
-                <td className="border-b border-gray-200 p-4 text-[#213066] hover:text-[#213066] cursor-pointer whitespace-nowrap">{item.attachment}</td>
+            {data.length > 0 ? (
+              data.map((item, index) => (
+                <tr key={index} className="hover:bg-gray-50 transition duration-300">
+                  <td className="p-4">{item.site}</td>
+
+                  {/* ✅ Clean lift details */}
+                  <td className="p-4 text-sm text-gray-700">
+                    {item.lift ? (
+                      <div className="space-y-1">
+                        <p><strong>ID:</strong> {item.lift.id}</p>
+                        <p><strong>Code:</strong> {item.lift.lift_code}</p>
+                        <p><strong>Name:</strong> {item.lift.name}</p>
+                        <p><strong>Floor:</strong> {item.lift.floor_id_value}</p>
+                        <p><strong>Brand:</strong> {item.lift.brand_value}</p>
+                        <p><strong>Model:</strong> {item.lift.model}</p>
+                        <p><strong>Passengers:</strong> {item.lift.no_of_passengers}</p>
+                        <p><strong>Load:</strong> {item.lift.load_kg} Kg</p>
+                        <p><strong>Speed:</strong> {item.lift.speed}</p>
+                        <p><strong>Lift Type:</strong> {item.lift.lift_type_value}</p>
+                        <p><strong>Machine Type:</strong> {item.lift.machine_type_value}</p>
+                        <p><strong>Machine Brand:</strong> {item.lift.machine_brand_value}</p>
+                        <p><strong>Door Type:</strong> {item.lift.door_type_value}</p>
+                        <p><strong>Door Brand:</strong> {item.lift.door_brand_value}</p>
+                        <p><strong>Controller Brand:</strong> {item.lift.controller_brand_value}</p>
+                        <p><strong>Cabin:</strong> {item.lift.cabin_value}</p>
+                        <p><strong>Price:</strong> {item.lift.price}</p>
+                      </div>
+                    ) : (
+                      "No lift details"
+                    )}
+                  </td>
+
+                  <td className="p-4">{item.licenseNo}</td>
+                  <td className="p-4">{item.period}</td>
+                  <td className="p-4">
+                    {item.attachmentUrl ? (
+                      <a
+                        href={`${apiBaseUrl}${item.attachmentUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {item.attachment}
+                      </a>
+                    ) : "No attachment"}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" className="px-4 py-4 text-center text-gray-500">
+                  No customer licenses found.
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-4">
-        {mockData.map((item, index) => (
-          <div 
-            key={index} 
-            className="bg-white rounded-xl shadow-lg p-4 border border-gray-200"
-            onClick={() => toggleExpand(index)}
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-bold text-gray-800">{item.site}</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  <span className="font-medium">License:</span> {item.licenseNo}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Period:</span> {item.period}
-                </p>
+        {data.length > 0 ? (
+          data.map((item, index) => (
+            <div 
+              key={index} 
+              className="bg-white rounded-xl shadow-lg p-4 border border-gray-200"
+              onClick={() => toggleExpand(index)}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-bold text-gray-800">{item.site}</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    <span className="font-medium">License:</span> {item.licenseNo}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Period:</span> {item.period}
+                  </p>
+                </div>
               </div>
-              <button 
-                className="text-orange-500 hover:text-orange-700"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Handle attachment view
-                }}
-              >
-                {item.attachment}
-              </button>
-            </div>
-            
-            {expandedCard === index && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <h4 className="font-medium text-gray-700 mb-1">Lift Details:</h4>
-                <p className="text-sm text-gray-600">{item.lifts}</p>
+              
+              {expandedCard === index && item.lift && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <h4 className="font-medium text-gray-700 mb-1">Lift Details:</h4>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li><strong>ID:</strong> {item.lift.id}</li>
+                    <li><strong>Code:</strong> {item.lift.lift_code}</li>
+                    <li><strong>Name:</strong> {item.lift.name}</li>
+                    <li><strong>Floor:</strong> {item.lift.floor_id_value}</li>
+                    <li><strong>Brand:</strong> {item.lift.brand_value}</li>
+                    <li><strong>Model:</strong> {item.lift.model}</li>
+                    <li><strong>Passengers:</strong> {item.lift.no_of_passengers}</li>
+                    <li><strong>Load:</strong> {item.lift.load_kg} Kg</li>
+                    <li><strong>Speed:</strong> {item.lift.speed}</li>
+                    <li><strong>Lift Type:</strong> {item.lift.lift_type_value}</li>
+                    <li><strong>Machine Type:</strong> {item.lift.machine_type_value}</li>
+                    <li><strong>Machine Brand:</strong> {item.lift.machine_brand_value}</li>
+                    <li><strong>Door Type:</strong> {item.lift.door_type_value}</li>
+                    <li><strong>Door Brand:</strong> {item.lift.door_brand_value}</li>
+                    <li><strong>Controller Brand:</strong> {item.lift.controller_brand_value}</li>
+                    <li><strong>Cabin:</strong> {item.lift.cabin_value}</li>
+                    <li><strong>Price:</strong> {item.lift.price}</li>
+                  </ul>
+                </div>
+              )}
+              
+              <div className="mt-3 pt-3 border-t border-gray-200 flex justify-center">
+                <button 
+                  className="text-orange-500 text-sm flex items-center"
+                  onClick={() => toggleExpand(index)}
+                >
+                  {expandedCard === index ? 'Show Less' : 'Show More'}
+                </button>
               </div>
-            )}
-            
-            <div className="mt-3 pt-3 border-t border-gray-200 flex justify-center">
-              <button 
-                className="text-orange-500 text-sm flex items-center"
-                onClick={() => toggleExpand(index)}
-              >
-                {expandedCard === index ? 'Show Less' : 'Show More'}
-              </button>
             </div>
+          ))
+        ) : (
+          <div className="text-center text-gray-500 p-4">
+            No customer licenses found.
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

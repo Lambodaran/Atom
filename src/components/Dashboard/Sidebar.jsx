@@ -135,20 +135,17 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobile }) => {
   };
 
   return (
-    <div className={`
-      h-full bg-white text-gray-800 flex flex-col font-poppins
-      ${isCollapsed ? 'w-14' : 'w-56'}
-      ${isMobile ? 'fixed z-50' : 'relative'}
-      transition-all duration-300
-      border-r border-gray-200
-      shadow-sm
-    `}>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
-        .font-poppins {
-          font-family: 'Poppins';
-        }
-      `}</style>
+    <div
+      className={`
+        h-full bg-white text-gray-800 flex flex-col
+        ${isCollapsed ? 'w-14' : 'w-56'}
+        ${isMobile ? 'fixed z-50' : 'relative'}
+        transition-all duration-300
+        border-r border-gray-200
+        shadow-sm
+      `}
+      style={{ fontFamily: "'Poppins'" }}
+    >
       <div className="p-2 border-b border-gray-200 flex items-center justify-center h-14">
         {isCollapsed ? (
           <img src={logo} alt="Logo" className="h-8 w-8 object-contain" />

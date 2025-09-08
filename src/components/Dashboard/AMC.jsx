@@ -3,8 +3,9 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import AMCForm from '../Dashboard/Forms/AMCform';
 import { Edit, Trash2, Search, ChevronDown, MoreVertical, Download, Upload, Import } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom'; // Replace useHistory with useNavigate
 
-const apiBaseUrl = import.meta.env.VITE_BASE_API; // Base URL without /amc
+const apiBaseUrl = import.meta.env.VITE_BASE_API;
 
 // Static invoice frequency options from Django model
 const invoiceFrequencyOptionsStatic = [
@@ -21,6 +22,7 @@ const AMC = () => {
   const [amcData, setAmcData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedAMCs, setSelectedAMCs] = useState([]);
+  const [initialFormData, setInitialFormData] = useState({});
 
   // State for filters
   const [filters, setFilters] = useState({
@@ -35,7 +37,7 @@ const AMC = () => {
 
   // State for dropdown options
   const [customerOptions, setCustomerOptions] = useState([]);
-  const [invoiceFrequencyOptions] = useState(invoiceFrequencyOptionsStatic.map(option => option.value)); // Use 'value' for consistency
+  const [invoiceFrequencyOptions] = useState(invoiceFrequencyOptionsStatic.map(option => option.value));
   const [amcTypeOptions, setAmcTypeOptions] = useState([]);
   const [paymentTermsOptions, setPaymentTermsOptions] = useState([]);
   const [statusOptions, setStatusOptions] = useState(['Active', 'Expired', 'Renew In Progress']);
@@ -48,6 +50,10 @@ const AMC = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
+
+  // Use useLocation and useNavigate
+  const location = useLocation();
+  const navigate = useNavigate(); // Replace useHistory with useNavigate
 
   // Centralized Axios instance with Bearer token
   const createAxiosInstance = () => {
@@ -81,8 +87,8 @@ const AMC = () => {
 
       const amcDataMapped = amcResponse.data.map(item => ({
         id: item.id,
-        amc: item.amcname || 'N/A', // Fixed mapping to correctly use amc_name
-        customer: item.customer_name || '-', // Use customer_name from serializer
+        amc: item.amcname || 'N/A',
+        customer: item.customer_name || '-',
         created: new Date(item.created).toLocaleDateString('en-GB', {
           day: '2-digit',
           month: '2-digit',
@@ -94,8 +100,8 @@ const AMC = () => {
         amount: `Contract Amount: ${item.contract_amount || '0.00'}, Total Amount Paid: ${item.total_amount_paid || '0.00'}, Amount Due: ${item.amount_due || '0.00'}`,
         referenceId: item.reference_id,
         invoiceFrequency: invoiceFrequencyOptionsStatic.find(opt => opt.value === item.invoice_frequency)?.label || '-',
-        amcType: item.amc_type_name || '-', // Use amc_type_name from serializer
-        paymentTerms: item.payment_terms_name || '-', // Use payment_terms_name from serializer
+        amcType: item.amc_type_name || '-',
+        paymentTerms: item.payment_terms_name || '-',
         startDate: item.start_date,
         endDate: item.end_date,
         equipmentNo: item.equipment_no || '-',
@@ -109,6 +115,17 @@ const AMC = () => {
       setCustomerOptions(customers.data);
       setAmcTypeOptions(amcTypes.data);
       setPaymentTermsOptions(paymentTerms.data);
+
+      // Check for customerId in URL and open AMCForm if present
+      const queryParams = new URLSearchParams(location.search);
+      const customerId = queryParams.get('customerId');
+      if (customerId) {
+        const customer = customers.data.find(c => c.reference_id == customerId);
+        setInitialFormData({ customer: customer ? customer.site_name : '' });
+        setIsCreateModalOpen(true);
+        // Clear the query parameter to avoid repeated triggers
+        //navigate({ ...location, search: '' }); // Updated from history.replace
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       if (error.response?.status === 401) {
@@ -431,7 +448,10 @@ const AMC = () => {
 
           {/* Create New AMC Button */}
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              setInitialFormData({});
+              setIsCreateModalOpen(true);
+            }}
             className="bg-[#243158] text-white px-3 md:px-4 py-2 rounded-lg hover:bg-[#111520] transition duration-200 text-sm md:text-base"
           >
             Create New AMC
@@ -784,11 +804,12 @@ const AMC = () => {
       {(isCreateModalOpen || isEditModalOpen) && (
         <AMCForm
           isEdit={isEditModalOpen}
-          initialData={currentAMC}
+          initialData={isEditModalOpen ? currentAMC : initialFormData}
           onClose={() => {
             setIsCreateModalOpen(false);
             setIsEditModalOpen(false);
             setCurrentAMC(null);
+            setInitialFormData({});
           }}
           onSubmitSuccess={(message) => {
             fetchData();

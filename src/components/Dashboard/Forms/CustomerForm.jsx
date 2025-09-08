@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Edit, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // NEW: Import useNavigate
+import SuccessToast from '../../Dashboard/messages/SuccessToast'; // NEW: Import SuccessToast
 
 const CustomerForm = ({
   isEdit = false,
@@ -11,6 +13,7 @@ const CustomerForm = ({
   apiBaseUrl,
   dropdownOptions = {},
 }) => {
+  const navigate = useNavigate(); // NEW: Initialize navigate hook
   const [formData, setFormData] = useState({
     siteId: '',
     jobNo: '',
@@ -94,14 +97,13 @@ const CustomerForm = ({
       const response = await axiosInstance.get(`${apiBaseUrl}${endpoint}`);
       console.log(`Fetched ${field} options:`, response.data);
 
-      // Normalize response data
       let normalizedData;
       if (field === 'liftCodes') {
         normalizedData = response.data.map((item) => ({
           id: item.id,
           value: item.lift_code,
           label: item.lift_code,
-          ...item, // include all other lift details
+          ...item,
         }));
       } else {
         normalizedData = response.data.map((item) => ({
@@ -384,7 +386,6 @@ const CustomerForm = ({
       }
       toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} deleted successfully.`);
       await fetchOptions(field);
-      await fetchOptions(field);
     } catch (error) {
       console.error(`Error deleting ${field}:`, error);
       if (error.response?.status === 401) {
@@ -400,145 +401,182 @@ const CustomerForm = ({
     }
   };
 
+  const resetForm = () => { // NEW: Function to reset form data
+    setFormData({
+      siteId: '',
+      jobNo: '',
+      siteName: '',
+      liftCode: '',
+      siteAddress: '',
+      email: '',
+      phone: '',
+      mobile: '',
+      sameAsSiteAddress: false,
+      officeAddress: '',
+      contactPersonName: '',
+      designation: '',
+      pinCode: '',
+      country: '',
+      state: formData.state, // Preserve dropdowns
+      city: '',
+      sector: '',
+      routes: formData.routes,
+      branch: formData.branch,
+      gstNumber: '',
+      panNumber: '',
+      handoverDate: '',
+      billingName: '',
+      generateCustomerLicense: false,
+    });
+    setSelectedLiftCode('');
+  };
+
   const handleSubmit = async () => {
-  const now = Date.now();
-  if (isSubmitting || (now - lastSubmitTime < 500)) {
-    console.log('Submission throttled or already in progress, ignoring.');
-    return;
-  }
-
-  console.log('handleSubmit called, isEdit:', isEdit, 'formData:', formData);
-
-  if (!formData.siteId) {
-    toast.error('Site ID is required.');
-    console.log('Validation failed: Site ID is empty');
-    return;
-  }
-  if (!formData.siteName) {
-    toast.error('Site Name is required.');
-    console.log('Validation failed: Site Name is empty');
-    return;
-  }
-  if (!formData.state) {
-    toast.error('State is required. Please select a state or add a new one.');
-    console.log('Validation failed: State is empty, Available states:', existingOptions.state.map((s) => s.value));
-    return;
-  }
-  if (!formData.routes) {
-    toast.error('Route is required. Please select a route or add a new one.');
-    console.log('Validation failed: Route is empty, Available routes:', existingOptions.routes.map((r) => r.value));
-    return;
-  }
-  if (!formData.branch) {
-    toast.error('Branch is required. Please select a branch or add a new one.');
-    console.log('Validation failed: Branch is empty, Available branches:', existingOptions.branch.map((b) => b.value));
-    return;
-  }
-
-  const validSectors = ['government', 'private'];
-  if (formData.sector && !validSectors.includes(formData.sector)) {
-    toast.error('Please select a valid sector from the dropdown.');
-    console.log('Validation failed: Invalid sector value:', formData.sector);
-    return;
-  }
-
-  // Validate that if generateCustomerLicense is checked, liftCode must be selected
-  if (formData.generateCustomerLicense && !formData.liftCode) {
-    toast.error('Please select a Lift Code to generate customer license.');
-    console.log('Validation failed: Generate license checked but no lift code selected');
-    return;
-  }
-
-  const axiosInstance = createAxiosInstance();
-  if (!axiosInstance) {
-    console.log('Validation failed: No Axios instance created');
-    return;
-  }
-
-  try {
-    setIsSubmitting(true);
-    setLastSubmitTime(now);
-
-    const customerData = {
-      site_id: formData.siteId,
-      job_no: formData.jobNo,
-      site_name: formData.siteName,
-      lift_code: formData.liftCode || null,
-      site_address: formData.siteAddress,
-      email: formData.email,
-      phone: formData.phone,
-      mobile: formData.mobile,
-      office_address: formData.officeAddress,
-      contact_person_name: formData.contactPersonName,
-      designation: formData.designation,
-      pin_code: formData.pinCode,
-      country: formData.country,
-      province_state: existingOptions.state.find((s) => s.value === formData.state)?.id || null,
-      city: formData.city,
-      sector: formData.sector || null,
-      routes: existingOptions.routes.find((r) => r.value === formData.routes)?.id || null,
-      branch: existingOptions.branch.find((b) => b.value === formData.branch)?.id || null,
-      gst_number: formData.gstNumber,
-      pan_number: formData.panNumber,
-      handover_date: formData.handoverDate,
-      billing_name: formData.billingName,
-      generate_customer_license: formData.generateCustomerLicense,
-      lift_code: formData.liftCode || null,
-      lifts: formData.liftCode ? [existingOptions.liftCodes.find((lift) => lift.value === formData.liftCode)?.id] : [], // Add lifts array with Lift ID
-    };
-
-    console.log('Prepared customerData:', customerData);
-
-    console.log('Attempting to submit customer data...');
-    let response;
-    if (isEdit) {
-      console.log('Calling PUT /sales/edit-customer/', initialData.id);
-      response = await axiosInstance.put(
-        `${apiBaseUrl}/sales/edit-customer/${initialData.id}/`,
-        customerData
-      );
-      toast.success('Customer updated successfully.');
-    } else {
-      console.log('Calling POST /sales/add-customer/');
-      response = await axiosInstance.post(
-        `${apiBaseUrl}/sales/add-customer/`,
-        customerData
-      );
-      toast.success('Customer created successfully.');
+    const now = Date.now();
+    if (isSubmitting || (now - lastSubmitTime < 500)) {
+      console.log('Submission throttled or already in progress, ignoring.');
+      return;
     }
 
-    // Show success message if license was generated
-    if (formData.generateCustomerLicense && formData.liftCode) {
-      toast.success('Customer license generated successfully!');
+    console.log('handleSubmit called, isEdit:', isEdit, 'formData:', formData);
+
+    if (!formData.siteId) {
+      toast.error('Site ID is required.');
+      console.log('Validation failed: Site ID is empty');
+      return;
+    }
+    if (!formData.siteName) {
+      toast.error('Site Name is required.');
+      console.log('Validation failed: Site Name is empty');
+      return;
+    }
+    if (!formData.state) {
+      toast.error('State is required. Please select a state or add a new one.');
+      console.log('Validation failed: State is empty, Available states:', existingOptions.state.map((s) => s.value));
+      return;
+    }
+    if (!formData.routes) {
+      toast.error('Route is required. Please select a route or add a new one.');
+      console.log('Validation failed: Route is empty, Available routes:', existingOptions.routes.map((r) => r.value));
+      return;
+    }
+    if (!formData.branch) {
+      toast.error('Branch is required. Please select a branch or add a new one.');
+      console.log('Validation failed: Branch is empty, Available branches:', existingOptions.branch.map((b) => b.value));
+      return;
     }
 
-    // Update parent component with new data
-    const updatedCustomer = { ...customerData, id: response.data.id || initialData.id };
-    await onSubmitSuccess(updatedCustomer);
-
-    // Refresh dropdown options
-    await Promise.all(['state', 'routes', 'branch', 'liftCodes'].map((field) => fetchOptions(field)));
-    onClose();
-  } catch (error) {
-    console.error(`Error ${isEdit ? 'editing' : 'creating'} customer:`, error);
-    if (error.response?.status === 401) {
-      toast.error('Session expired. Please log in again.');
-      localStorage.removeItem('access_token');
-      window.location.href = '/login';
-    } else {
-      const errorMsg =
-        error.response?.data?.error ||
-        Object.entries(error.response?.data || {})
-          .map(([field, errors]) => `${field}: ${errors.join(', ')}`)
-          .join('; ') ||
-        `Failed to ${isEdit ? 'update' : 'create'} customer.`;
-      toast.error(errorMsg);
-      console.log('Submission error details:', error.response?.data);
+    const validSectors = ['government', 'private'];
+    if (formData.sector && !validSectors.includes(formData.sector)) {
+      toast.error('Please select a valid sector from the dropdown.');
+      console.log('Validation failed: Invalid sector value:', formData.sector);
+      return;
     }
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+
+    if (formData.generateCustomerLicense && !formData.liftCode) {
+      toast.error('Please select a Lift Code to generate customer license.');
+      console.log('Validation failed: Generate license checked but no lift code selected');
+      return;
+    }
+
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) {
+      console.log('Validation failed: No Axios instance created');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setLastSubmitTime(now);
+
+      const customerData = {
+        site_id: formData.siteId,
+        job_no: formData.jobNo,
+        site_name: formData.siteName,
+        lift_code: formData.liftCode || null,
+        site_address: formData.siteAddress,
+        email: formData.email,
+        phone: formData.phone,
+        mobile: formData.mobile,
+        office_address: formData.officeAddress,
+        contact_person_name: formData.contactPersonName,
+        designation: formData.designation,
+        pin_code: formData.pinCode,
+        country: formData.country,
+        province_state: existingOptions.state.find((s) => s.value === formData.state)?.id || null,
+        city: formData.city,
+        sector: formData.sector || null,
+        routes: existingOptions.routes.find((r) => r.value === formData.routes)?.id || null,
+        branch: existingOptions.branch.find((b) => b.value === formData.branch)?.id || null,
+        gst_number: formData.gstNumber,
+        pan_number: formData.panNumber,
+        handover_date: formData.handoverDate,
+        billing_name: formData.billingName,
+        generate_customer_license: formData.generateCustomerLicense,
+        lifts: formData.liftCode
+          ? [existingOptions.liftCodes.find((lc) => lc.value === formData.liftCode)?.id]
+          : [],
+      };
+
+      let response;
+      if (isEdit) {
+        console.log('Calling PUT /sales/edit-customer/', initialData.id);
+        response = await axiosInstance.put(
+          `${apiBaseUrl}/sales/edit-customer/${initialData.id}/`,
+          customerData
+        );
+        toast(<SuccessToast message="Customer updated successfully." />, { autoClose: 3000 });
+      } else {
+        console.log('Calling POST /sales/add-customer/');
+        response = await axiosInstance.post(
+          `${apiBaseUrl}/sales/add-customer/`,
+          customerData
+        );
+        toast(<SuccessToast message="Customer created successfully." />, { autoClose: 3000 });
+
+        // NEW: Ask if user wants to create an AMC
+        const createAMC = window.confirm('Do you want to create an AMC for this customer?');
+        const updatedCustomer = { ...customerData, id: response.data.id };
+
+        if (createAMC) {
+          // Navigate to /dashboard/amc with customer ID
+          navigate(`/dashboard/amc?customerId=${response.data.reference_id}`);
+          await onSubmitSuccess(updatedCustomer);
+          await Promise.all(['state', 'routes', 'branch', 'liftCodes'].map((field) => fetchOptions(field)));
+          onClose();
+        } else {
+          // Reset form and stay on page
+          await onSubmitSuccess(updatedCustomer);
+          await Promise.all(['state', 'routes', 'branch', 'liftCodes'].map((field) => fetchOptions(field)));
+          resetForm();
+          // Do not call onClose to keep the modal open
+        }
+      }
+
+      if (formData.generateCustomerLicense && formData.liftCode) {
+        toast(<SuccessToast message="Customer license generated successfully!" />, { autoClose: 3000 });
+      }
+
+    } catch (error) {
+      console.error(`Error ${isEdit ? 'editing' : 'creating'} customer:`, error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        const errorMsg =
+          error.response?.data?.error ||
+          Object.entries(error.response?.data || {})
+            .map(([field, errors]) => `${field}: ${errors.join(', ')}`)
+            .join('; ') ||
+          `Failed to ${isEdit ? 'update' : 'create'} customer.`;
+        toast.error(errorMsg);
+        console.log('Submission error details:', error.response?.data);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const renderInput = (name, label, type = 'text', required = false) => (
     <div className="form-group mb-4">

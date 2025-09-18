@@ -143,24 +143,13 @@ const LoginPage = () => {
 
           {!showForgotPassword ? (
             <>
-              <div className="flex mb-6 rounded-lg bg-blue-50 p-1">
+              <div className="mb-6">
                 <button
                   type="button"
                   onClick={() => setLoginMethod('email')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    loginMethod === 'email' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-blue-600'
-                  }`}
+                  className="w-full py-2 px-4 rounded-md text-sm font-medium bg-white text-blue-600 shadow-sm"
                 >
-                  Email Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginMethod('mobile')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    loginMethod === 'mobile' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-blue-600'
-                  }`}
-                >
-                  Mobile OTP
+                  {loginMethod === 'email' ? 'Email Login' : 'Mobile Login'}
                 </button>
               </div>
 
@@ -242,6 +231,23 @@ const LoginPage = () => {
                         </button>
                       </div>
                     </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                    >
+                      Sign In
+                    </button>
+
+                    <div className="text-center my-4">or</div>
+
+                    <button
+                      type="button"
+                      onClick={() => setLoginMethod('mobile')}
+                      className="w-full bg-white text-blue-600 py-3 px-4 border border-gray-300 rounded-lg font-medium shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                    >
+                      Login with Mobile OTP
+                    </button>
                   </>
                 ) : (
                   <>
@@ -318,15 +324,15 @@ const LoginPage = () => {
                     >
                       Request OTP
                     </button>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                    >
+                      Sign In
+                    </button>
                   </>
                 )}
-
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
-                >
-                  Sign In
-                </button>
               </form>
             </>
           ) : (

@@ -37,6 +37,7 @@ const AMCForm = ({
   const [existingAmcTypes, setExistingAmcTypes] = useState([]);
   const [existingPaymentTerms, setExistingPaymentTerms] = useState([]);
   const [amcServiceItems, setAmcServiceItems] = useState([]);
+  const [customers, setCustomers] = useState([]); // New state for customers
 
   const [modalState, setModalState] = useState({
     amcType: { isOpen: false, value: '', isEditing: false, editId: null },
@@ -64,6 +65,7 @@ const AMCForm = ({
         amcType: 'amc/amc-types',
         paymentTerms: 'amc/payment-terms',
         amcServiceItem: 'auth/item-list',
+        customer: 'sales/customer-list', // Added customer endpoint
       };
       const endpoint = endpoints[field];
       const response = await axiosInstance.get(`${apiBaseUrl}/${endpoint}/`);
@@ -73,6 +75,8 @@ const AMCForm = ({
         setExistingPaymentTerms(response.data);
       } else if (field === 'amcServiceItem') {
         setAmcServiceItems(response.data);
+      } else if (field === 'customer') {
+        setCustomers(response.data);
       }
     } catch (error) {
       console.error(`Error fetching ${field}:`, error);
@@ -92,6 +96,7 @@ const AMCForm = ({
     fetchOptions('amcType');
     fetchOptions('paymentTerms');
     fetchOptions('amcServiceItem');
+    fetchOptions('customer'); // Fetch customers on mount
   }, []);
 
   useEffect(() => {
@@ -106,6 +111,38 @@ const AMCForm = ({
       total: calculatedTotal.toFixed(2)
     }));
   }, [newAMC.price, newAMC.no_of_lifts, newAMC.gst_percentage]);
+
+  useEffect(() => {
+    if (!isEdit && !newAMC.referenceId) {
+      fetchNextReferenceId();
+    }
+  }, [isEdit, newAMC.referenceId]);
+
+  const fetchNextReferenceId = async () => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const response = await axiosInstance.get(`${apiBaseUrl}/amc/amc-list/`);
+      const amcs = response.data;
+      let nextId = 'AMC01';
+      if (amcs.length > 0) {
+        const numbers = amcs.map(amc => parseInt(amc.reference_id.replace('AMC', '')) || 0);
+        const maxNum = Math.max(...numbers);
+        nextId = `AMC${(maxNum + 1).toString().padStart(2, '0')}`;
+      }
+      setNewAMC(prev => ({ ...prev, referenceId: nextId }));
+    } catch (error) {
+      console.error('Error fetching next reference ID:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error('Failed to generate reference ID. Please try again.');
+      }
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -239,8 +276,7 @@ const AMCForm = ({
     if (!axiosInstance) return;
 
     try {
-      const customersResponse = await axiosInstance.get(`${apiBaseUrl}/sales/customer-list/`);
-      const selectedCustomer = customersResponse.data.find(c => c.site_name === newAMC.customer);
+      const selectedCustomer = customers.find(c => c.site_name === newAMC.customer);
       
       if (!selectedCustomer) {
         toast.error('Selected customer not found');
@@ -308,53 +344,58 @@ const AMCForm = ({
       } else if (error.response?.status === 500) {
         toast.error('Server error occurred. Please check the console for details or contact support.');
       } else {
-        toast.error(error.response?.data?.error || (isEdit ? 'Failed to update AMC' : 'Failed to create AMC'));
+        const errorDetails = error.response?.data || { error: 'An unknown error occurred' };
+        Object.entries(errorDetails).forEach(([key, value]) => {
+          toast.error(`${key}: ${Array.isArray(value) ? value[0] : value}`);
+        });
       }
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
-        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] px-6 py-4">
-          <h2 className="text-xl font-bold text-white">
-            {isEdit ? 'Edit AMC' : 'Create New AMC'}
-          </h2>
+        <div className="bg-gradient-to-r from-[#2D3A6B] to-[#243158] px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-white">{isEdit ? 'Edit AMC' : 'Create AMC'}</h2>
+          <button onClick={onClose} className="text-white hover:text-gray-200 transition-colors">
+            ✕
+          </button>
         </div>
 
         <div className="p-6 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Left Column */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Customer
+                  Customer *
                 </label>
                 <select
                   name="customer"
                   value={newAMC.customer}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                  required
                 >
                   <option value="">Select Customer</option>
-                  {dropdownOptions.customerOptions?.map((customer, index) => (
-                    <option key={index} value={customer}>
-                      {customer}
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.site_name}>
+                      {customer.site_name}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reference ID
+                  Reference ID *
                 </label>
                 <input
                   type="text"
                   name="referenceId"
                   value={newAMC.referenceId}
                   onChange={handleInputChange}
-                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                  readOnly={isEdit}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-gray-100"
+                  required
+                  readOnly
                 />
               </div>
               <div className="form-group">
@@ -380,23 +421,24 @@ const AMCForm = ({
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                 >
                   <option value="">Select Frequency</option>
-                  {dropdownOptions.invoiceFrequencyOptions?.map((freq, index) => (
-                    <option key={index} value={freq}>
-                      {freq.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                    </option>
-                  ))}
+                  <option value="annually">Annually</option>
+                  <option value="semi_annually">Semi Annually</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="every_other_weekly">Every Other Weekly</option>
                 </select>
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   AMC Type
                 </label>
-                <div className="flex space-x-2">
+                <div className="flex items-center space-x-2">
                   <select
                     name="amcType"
                     value={newAMC.amcType}
                     onChange={handleInputChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    className="block flex-grow px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
                     <option value="">Select AMC Type</option>
                     {existingAmcTypes.map((type) => (
@@ -407,7 +449,7 @@ const AMCForm = ({
                   </select>
                   <button
                     onClick={() => openAddModal('amcType')}
-                    className="px-4 py-2 bg-[#2D3A6B] text-white rounded-lg hover:bg-[#213066] transition-all duration-200"
+                    className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all duration-200"
                   >
                     +
                   </button>
@@ -417,12 +459,12 @@ const AMCForm = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Payment Terms
                 </label>
-                <div className="flex space-x-2">
+                <div className="flex items-center space-x-2">
                   <select
                     name="paymentTerms"
                     value={newAMC.paymentTerms}
                     onChange={handleInputChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
+                    className="block flex-grow px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 appearance-none bg-white"
                   >
                     <option value="">Select Payment Terms</option>
                     {existingPaymentTerms.map((terms) => (
@@ -433,7 +475,7 @@ const AMCForm = ({
                   </select>
                   <button
                     onClick={() => openAddModal('paymentTerms')}
-                    className="px-4 py-2 bg-[#2D3A6B] text-white rounded-lg hover:bg-[#213066] transition-all duration-200"
+                    className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all duration-200"
                   >
                     +
                   </button>
@@ -441,11 +483,10 @@ const AMCForm = ({
               </div>
             </div>
 
-            {/* Right Column */}
             <div className="space-y-4">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
+                  Start Date *
                 </label>
                 <input
                   type="date"
@@ -453,11 +494,12 @@ const AMCForm = ({
                   value={newAMC.startDate}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                  required
                 />
               </div>
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
+                  End Date *
                 </label>
                 <input
                   type="date"
@@ -465,6 +507,7 @@ const AMCForm = ({
                   value={newAMC.endDate}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                  required
                 />
               </div>
               <div className="form-group">
@@ -477,6 +520,17 @@ const AMCForm = ({
                   value={newAMC.equipmentNo}
                   onChange={handleInputChange}
                   className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Files
+                </label>
+                <input
+                  type="file"
+                  name="files"
+                  onChange={handleInputChange}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
                 />
               </div>
               <div className="form-group">

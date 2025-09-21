@@ -605,7 +605,7 @@ const AMC = () => {
                     className="h-4 w-4 text-[#243158] rounded focus:ring-[#243158] border-gray-300"
                   />
                 </th>
-                <th className="p-3 lg:p-4 text-left">ID</th>
+                <th className="p-3 lg:p-4 text-left">Reference ID</th>
                 <th className="p-3 lg:p-4 text-left">AMC</th>
                 <th className="p-3 lg:p-4 text-left">Customer</th>
                 <th className="p-3 lg:p-4 text-left">Created</th>
@@ -636,7 +636,7 @@ const AMC = () => {
                         className="h-4 w-4 text-[#243158] rounded focus:ring-[#243158] border-gray-300"
                       />
                     </td>
-                    <td className="p-3 lg:p-4 text-gray-800">{amc.id}</td>
+                    <td className="p-3 lg:p-4 text-gray-800">{amc.referenceId}</td>
                     <td className="p-3 lg:p-4 text-gray-800 font-medium whitespace-nowrap">{amc.amc}</td>
                     <td className="p-3 lg:p-4 text-gray-800 whitespace-nowrap">{amc.customer}</td>
                     <td className="p-3 lg:p-4 text-gray-800 whitespace-nowrap">{amc.created}</td>

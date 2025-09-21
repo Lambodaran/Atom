@@ -152,7 +152,7 @@ const Quotation = () => {
         const token = localStorage.getItem('access_token');
         await Promise.all(
           selectedQuotations.map(id =>
-            axios.delete(`${apiBaseUrl}/sales/quotation/${id}/`, {
+            axios.delete(`${apiBaseUrl}/sales/delete-quotation/${id}/`, {
               headers: { Authorization: `Bearer ${token}` },
             })
           )
@@ -226,7 +226,7 @@ const Quotation = () => {
     if (window.confirm('Are you sure you want to delete this quotation?')) {
       try {
         const token = localStorage.getItem('access_token');
-        await axios.delete(`${apiBaseUrl}/sales/quotation/${id}/`, {
+        await axios.delete(`${apiBaseUrl}/sales/delete-quotation/${id}/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setQuotations(prev => prev.filter(quotation => quotation.id !== id));

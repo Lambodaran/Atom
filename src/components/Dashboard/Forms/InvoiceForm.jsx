@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -50,6 +48,26 @@ const InvoiceForm = ({
         setAmcList(amcRes.data || []);
       } catch (err) {
         toast.error('Failed to fetch AMC list.');
+      }
+      try {
+        // Fetch last invoice to generate reference_id
+        const invoiceRes = await axios.get(
+          `${import.meta.env.VITE_BASE_API}/sales/invoice-list/`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const invoices = invoiceRes.data || [];
+        let newRefId = 'INV001';
+        if (invoices.length > 0) {
+          const lastInvoice = invoices[invoices.length - 1];
+          const lastId = parseInt(lastInvoice.reference_id.replace('INV', '')) || 0;
+          newRefId = `INV${String(lastId + 1).padStart(3, '0')}`;
+        }
+        setFormData((prev) => ({
+          ...prev,
+          reference_id: newRefId,
+        }));
+      } catch (err) {
+        toast.error('Failed to fetch invoice list for reference ID.');
       }
     };
     fetchDropdowns();
@@ -148,7 +166,7 @@ const InvoiceForm = ({
                     value={formData.reference_id}
                     onChange={handleInputChange}
                     className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    required
+                    readOnly
                   />
                 </div>
                 {/* Customer */}

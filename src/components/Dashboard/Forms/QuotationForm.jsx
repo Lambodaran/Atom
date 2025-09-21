@@ -107,6 +107,38 @@ const QuotationForm = ({
     fields.forEach(field => fetchOptions(field));
   }, [apiBaseUrl]);
 
+  useEffect(() => {
+    if (!isEdit && !formData.referenceId) {
+      fetchNextReferenceId();
+    }
+  }, [isEdit, formData.referenceId]);
+
+  const fetchNextReferenceId = async () => {
+    const axiosInstance = createAxiosInstance();
+    if (!axiosInstance) return;
+
+    try {
+      const response = await axiosInstance.get(`${apiBaseUrl}/sales/quotation-list/`);
+      const quotations = response.data;
+      let nextId = 'ALQ1001';
+      if (quotations.length > 0) {
+        const numbers = quotations.map(q => parseInt(q.reference_id.replace('ALQ', '')) || 0);
+        const maxNum = Math.max(...numbers);
+        nextId = `ALQ${(maxNum + 1)}`;
+      }
+      setFormData(prev => ({ ...prev, referenceId: nextId }));
+    } catch (error) {
+      console.error('Error fetching next reference ID:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+      } else {
+        toast.error('Failed to generate reference ID. Please try again.');
+      }
+    }
+  };
+
   // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -219,17 +251,17 @@ const QuotationForm = ({
             {isEdit ? 'Edit Quotation' : 'Create New Quotation'}
           </h2>
           <p className="text-white">
-            Fill in all required fields (*) to {isEdit ? 'update' : 'create'} a quotation
+            Fill in the details below to {isEdit ? 'update' : 'create'} a quotation.
           </p>
         </div>
 
         {/* Modal Body */}
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - Quotation Details */}
+            {/* Left Column - Basic Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                Quotation Details
+                Basic Information
               </h3>
 
               {/* Reference ID */}
@@ -242,10 +274,9 @@ const QuotationForm = ({
                   name="referenceId"
                   value={formData.referenceId}
                   onChange={handleInputChange}
-                  className={`block w-full px-4 py-2.5 rounded-lg border ${
-                    errors.referenceId ? 'border-red-500' : 'border-gray-300'
-                  } focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200`}
+                  className={`block w-full px-4 py-2.5 rounded-lg border ${errors.referenceId ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 bg-gray-100`}
                   required
+                  readOnly
                 />
                 {errors.referenceId && (
                   <p className="text-red-500 text-xs mt-1">{errors.referenceId}</p>

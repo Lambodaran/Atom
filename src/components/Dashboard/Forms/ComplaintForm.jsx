@@ -31,35 +31,55 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
   const [optionsLoading, setOptionsLoading] = useState({ customers: true, employees: true });
 
   useEffect(() => {
-    const fetchCustomers = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await axios.get(`${apiBaseUrl}/sales/customer-list/`, { headers: { Authorization: `Bearer ${token}` } });
-        setCustomers(response.data);
-        setOptionsLoading(prev => ({ ...prev, customers: false }));
+        if (!token) {
+          toast.error('Please log in to continue.');
+          window.location.href = '/login';
+          return;
+        }
+
+        // Fetch customers
+        const customerResponse = await axios.get(`${apiBaseUrl}/sales/customer-list/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCustomers(customerResponse.data);
+        setOptionsLoading((prev) => ({ ...prev, customers: false }));
+
+        // Fetch employees
+        const employeeResponse = await axios.get(`${apiBaseUrl}/auth/employees/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setEmployees(employeeResponse.data);
+        setOptionsLoading((prev) => ({ ...prev, employees: false }));
+
+        // Fetch complaints to generate reference ID (only for create mode)
+        if (!isEdit) {
+          const complaintResponse = await axios.get(`${apiBaseUrl}/auth/complaint-list/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const complaints = complaintResponse.data || [];
+          let newRefId = 'CMP1001';
+          if (complaints.length > 0) {
+            const lastComplaint = complaints[complaints.length - 1];
+            const lastId = parseInt(lastComplaint.reference.replace('CMP', '')) || 1000;
+            newRefId = `CMP${String(lastId + 1)}`;
+          }
+          setFormData((prev) => ({
+            ...prev,
+            reference: newRefId,
+          }));
+        }
       } catch (error) {
-        console.error('Error fetching customers:', error);
-        toast.error('Failed to fetch customers.');
-        setOptionsLoading(prev => ({ ...prev, customers: false }));
+        console.error('Error fetching data:', error);
+        toast.error('Failed to fetch data.');
+        setOptionsLoading((prev) => ({ ...prev, customers: false, employees: false }));
       }
     };
 
-    const fetchEmployees = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        const response = await axios.get(`${apiBaseUrl}/auth/employees/`, { headers: { Authorization: `Bearer ${token}` } });
-        setEmployees(response.data);
-        setOptionsLoading(prev => ({ ...prev, employees: false }));
-      } catch (error) {
-        console.error('Error fetching employees:', error);
-        toast.error('Failed to fetch employees.');
-        setOptionsLoading(prev => ({ ...prev, employees: false }));
-      }
-    };
-
-    fetchCustomers();
-    fetchEmployees();
-  }, []);
+    fetchData();
+  }, [isEdit]);
 
   useEffect(() => {
     if (!optionsLoading.customers && !optionsLoading.employees && isEdit && initialData) {
@@ -209,9 +229,7 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left Column */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                  Complaint Details
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Complaint Details</h3>
                 {/* Reference */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -226,16 +244,17 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
                     readOnly
                   />
                 </div>
-                {/* Type */}
+                {/* Complaint Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    TYPE <span className="text-red-500">*</span>
+                    COMPLAINT TYPE <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="type"
                     value={formData.type}
                     onChange={handleChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    required
                   >
                     <option value="Site Inspection">Site Inspection</option>
                     <option value="Spec Checking">Spec Checking</option>
@@ -255,22 +274,25 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
                     value={formData.date}
                     onChange={handleChange}
                     className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    required
                   />
                 </div>
                 {/* Customer */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CUSTOMER <span className="text-red-500">*</span>
+                    CUSTOMER
                   </label>
                   <select
                     name="customer"
                     value={formData.customer}
                     onChange={handleCustomerChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
                     <option value="">Select Customer</option>
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.id}>{customer.site_name}</option>
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.site_name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -290,7 +312,7 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
                 {/* Contact Person Mobile */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CONTACT PERSON MOBILE NO.
+                    CONTACT PERSON MOBILE
                   </label>
                   <input
                     type="text"
@@ -300,16 +322,10 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
                     className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
-              </div>
-              {/* Right Column */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                  Additional Details
-                </h3>
-                {/* Block / Wing */}
+                {/* Block/Wing */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    BLOCK / WING
+                    BLOCK/WING
                   </label>
                   <input
                     type="text"
@@ -319,43 +335,48 @@ const ComplaintForm = ({ isEdit, initialData, onClose, onSubmitSuccess, onSubmit
                     className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
+              </div>
+              {/* Right Column */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Assignment & Details</h3>
                 {/* Assign To */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ASSIGN TO...
+                    ASSIGN TO
                   </label>
-                  <div className="flex space-x-2">
+                  <div className="flex items-center space-x-2">
                     <select
                       name="assignTo"
                       value={formData.assignTo}
                       onChange={handleChange}
-                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                      className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
-                      <option value="">Select Assignee</option>
-                      {employees.map(employee => (
-                        <option key={employee.id} value={employee.id}>{employee.name}</option>
+                      <option value="">Select Employee</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </option>
                       ))}
                     </select>
-                    {/* <button
+                    <button
                       type="button"
-                      onClick={() => openEmployeeModal(false)}
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition duration-200"
-                      aria-label="Add New Employee"
+                      onClick={() => openEmployeeModal()}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200"
                     >
                       +
-                    </button> */}
+                    </button>
                   </div>
                 </div>
                 {/* Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    PRIORITY <span className="text-red-500">*</span>
+                    PRIORITY
                   </label>
                   <select
                     name="priority"
                     value={formData.priority}
                     onChange={handleChange}
-                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                    className="block w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
                     <option value="Urgent">Urgent</option>
                     <option value="High">High</option>

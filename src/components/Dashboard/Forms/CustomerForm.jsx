@@ -450,22 +450,10 @@ const CustomerForm = ({
       console.log('Validation failed: Site Name is empty');
       return;
     }
-    if (!formData.state) {
-      toast.error('State is required. Please select a state or add a new one.');
-      console.log('Validation failed: State is empty, Available states:', existingOptions.state.map((s) => s.value));
-      return;
-    }
-    if (!formData.routes) {
-      toast.error('Route is required. Please select a route or add a new one.');
-      console.log('Validation failed: Route is empty, Available routes:', existingOptions.routes.map((r) => r.value));
-      return;
-    }
-    if (!formData.branch) {
-      toast.error('Branch is required. Please select a branch or add a new one.');
-      console.log('Validation failed: Branch is empty, Available branches:', existingOptions.branch.map((b) => b.value));
-      return;
-    }
+    // State is now optional - no validation required
+    // Routes and branch are now optional - no validation required
 
+    // Sector is now optional - only validate if provided
     const validSectors = ['government', 'private'];
     if (formData.sector && !validSectors.includes(formData.sector)) {
       toast.error('Please select a valid sector from the dropdown.');
@@ -491,27 +479,27 @@ const CustomerForm = ({
 
       const customerData = {
         site_id: formData.siteId,
-        job_no: formData.jobNo,
+        job_no: formData.jobNo || '',
         site_name: formData.siteName,
         lift_code: formData.liftCode || null,
-        site_address: formData.siteAddress,
-        email: formData.email,
-        phone: formData.phone,
-        mobile: formData.mobile,
-        office_address: formData.officeAddress,
-        contact_person_name: formData.contactPersonName,
-        designation: formData.designation,
-        pin_code: formData.pinCode,
-        country: formData.country,
-        province_state: existingOptions.state.find((s) => s.value === formData.state)?.id || null,
-        city: formData.city,
+        site_address: formData.siteAddress || '',
+        email: formData.email || '',
+        phone: formData.phone || '',
+        mobile: formData.mobile || '',
+        office_address: formData.officeAddress || '',
+        contact_person_name: formData.contactPersonName || '',
+        designation: formData.designation || '',
+        pin_code: formData.pinCode || '',
+        country: formData.country || '',
+        province_state: formData.state ? (existingOptions.state.find((s) => s.value === formData.state)?.id || null) : null,
+        city: formData.city || '',
         sector: formData.sector || null,
-        routes: existingOptions.routes.find((r) => r.value === formData.routes)?.id || null,
-        branch: existingOptions.branch.find((b) => b.value === formData.branch)?.id || null,
-        gst_number: formData.gstNumber,
-        pan_number: formData.panNumber,
-        handover_date: formData.handoverDate,
-        billing_name: formData.billingName,
+        routes: formData.routes ? (existingOptions.routes.find((r) => r.value === formData.routes)?.id || null) : null,
+        branch: formData.branch ? (existingOptions.branch.find((b) => b.value === formData.branch)?.id || null) : null,
+        gst_number: formData.gstNumber || '',
+        pan_number: formData.panNumber || '',
+        handover_date: formData.handoverDate || null,
+        billing_name: formData.billingName || '',
         generate_customer_license: formData.generateCustomerLicense,
         lifts: formData.liftCode
           ? [existingOptions.liftCodes.find((lc) => lc.value === formData.liftCode)?.id]
@@ -718,11 +706,11 @@ const CustomerForm = ({
                   {renderInput('mobile', 'MOBILE (SMS NOTIFICATION)', 'tel')}
                   {renderInput('pinCode', 'PIN CODE')}
                   {renderInput('country', 'COUNTRY')}
-                  {renderSelectWithAdd('state', 'STATE', true)}
+                  {renderSelectWithAdd('state', 'STATE', false)}
                   {renderInput('city', 'CITY')}
                   {renderSelectWithAdd('sector', 'SECTOR', false, false)}
-                  {renderSelectWithAdd('routes', 'ROUTE', true)}
-                  {renderSelectWithAdd('branch', 'BRANCH', true)}
+                  {renderSelectWithAdd('routes', 'ROUTE', false)}
+                  {renderSelectWithAdd('branch', 'BRANCH', false)}
                   {renderInput('gstNumber', 'GST NUMBER')}
                   {renderInput('panNumber', 'PAN NUMBER')}
                   {renderInput('handoverDate', 'HANDOVER DATE', 'date')}
